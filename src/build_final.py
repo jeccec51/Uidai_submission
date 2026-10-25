@@ -1,71 +1,196 @@
 """Final deliverable: reports/UIDAI_report.html = (a) billion-scale review + (b) partial-print experiment.
 Regenerate after new results: python src/report_figs.py && python src/build_final.py"""
-import os as _os, sys as _sys; _sys.path.insert(0, _os.path.dirname(_os.path.abspath(__file__))); from paths import ROOT
-import base64, os, json, numpy as np, pandas as pd, datetime
-P = ROOT + ""; FIG = f"{P}/reports/figures"
-tpl = open(f"{P}/reports/assets/page_template.html").read(); style = tpl[tpl.index("<style>"):tpl.index("</style>") + 8]
+
+import base64
+import datetime
+import json
+import os
+import sys
+
+import numpy as np
+import pandas as pd
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from paths import ROOT  # noqa: E402
+
+P = ROOT
+FIG = f"{P}/reports/figures"
+tpl = open(f"{P}/reports/assets/page_template.html").read()
+style = tpl[tpl.index("<style>") : tpl.index("</style>") + 8]
+
+
 def svg(label):
-    i = tpl.index(f'aria-label="{label}"'); a = tpl.rfind("<svg", 0, i); b = tpl.index("</svg>", i) + 6
+    i = tpl.index(f'aria-label="{label}"')
+    a = tpl.rfind("<svg", 0, i)
+    b = tpl.index("</svg>", i) + 6
     out = tpl[a:b].replace("postcode", "code")
-    for x, y in [("texture expert → 384", "CNN head → 384"), ("12 attention blocks → 384", "12 transformer blocks → 384"),
-                 ("Second look — only when the score is in the “unsure” zone 0.3–0.6", "Realignment — only for scores in the uncertain range 0.3–0.6"),
-                 ("= “trying the jigsaw fit”", ""), ("reads each patch alone", "encodes each patch"),
-                 ("locked gallery", "encrypted gallery"), ("🔒 lock", "encrypt"), ("🔓 unlock", "decrypt"), ("locked query", "encrypted query"), ("locked scores", "encrypted scores"),
-                 ("locked gallery × locked query", "encrypted gallery × encrypted query"),
-                 ("The server cannot find the maximum itself — the lock only allows add and multiply, not “compare”.", "The server cannot compute the maximum: the scheme supports addition and multiplication, not comparison."),
-                 ("pick best K;", "select top K;"), ("re-check (stage 2)", "verify (stage 2)"), ("Pre-training task: the CNN first learns to “clean up” (enhance) prints, which makes its features sharper.", "Pre-training task: fingerprint enhancement, used to initialise the CNN encoder."),
-                 ("“A looks at B and back”", ""), ("cross-attention: A looks at B and back", "cross-attention between A and B"), ("self-attention: look within A, within B", "self-attention within A and within B"),
-                 ("straighten", "spatial"), ("(alignment)", "alignment"), ("Key holder (client)", "Key holder (client)"), ("Server (no key)", "Server (no decryption key)")]:
+    for x, y in [
+        ("texture expert → 384", "CNN head → 384"),
+        ("12 attention blocks → 384", "12 transformer blocks → 384"),
+        (
+            "Second look — only when the score is in the “unsure” zone 0.3–0.6",
+            "Realignment — only for scores in the uncertain range 0.3–0.6",
+        ),
+        ("= “trying the jigsaw fit”", ""),
+        ("reads each patch alone", "encodes each patch"),
+        ("locked gallery", "encrypted gallery"),
+        ("🔒 lock", "encrypt"),
+        ("🔓 unlock", "decrypt"),
+        ("locked query", "encrypted query"),
+        ("locked scores", "encrypted scores"),
+        ("locked gallery × locked query", "encrypted gallery × encrypted query"),
+        (
+            "The server cannot find the maximum itself — the lock only allows add and multiply, not “compare”.",
+            "The server cannot compute the maximum: the scheme supports addition and multiplication, not comparison.",
+        ),
+        ("pick best K;", "select top K;"),
+        ("re-check (stage 2)", "verify (stage 2)"),
+        (
+            "Pre-training task: the CNN first learns to “clean up” (enhance) prints, which makes its features sharper.",
+            "Pre-training task: fingerprint enhancement, used to initialise the CNN encoder.",
+        ),
+        ("“A looks at B and back”", ""),
+        ("cross-attention: A looks at B and back", "cross-attention between A and B"),
+        ("self-attention: look within A, within B", "self-attention within A and within B"),
+        ("straighten", "spatial"),
+        ("(alignment)", "alignment"),
+        ("Key holder (client)", "Key holder (client)"),
+        ("Server (no key)", "Server (no decryption key)"),
+    ]:
         out = out.replace(x, y)
     return out
-SVG_AFR, SVG_JIP, SVG_HERS = svg("AFR-Net block diagram"), svg("JIPNet block diagram"), svg("HERS encrypted search flow")
+
+
+SVG_AFR, SVG_JIP, SVG_HERS = (
+    svg("AFR-Net block diagram"),
+    svg("JIPNet block diagram"),
+    svg("HERS encrypted search flow"),
+)
 S = pd.read_csv(f"{P}/experiments/summary.csv")
-bench = json.load(open(f"{P}/experiments/bench.json"))   # measured ns per code comparison (src/bench_compare.py)
-img = lambda f: ("data:image/png;base64," + base64.b64encode(open(f"{FIG}/{f}", "rb").read()).decode()) if os.path.exists(f"{FIG}/{f}") else ""
+bench = json.load(
+    open(f"{P}/experiments/bench.json")
+)  # measured ns per code comparison (src/bench_compare.py)
+img = lambda f: (
+    ("data:image/png;base64," + base64.b64encode(open(f"{FIG}/{f}", "rb").read()).decode())
+    if os.path.exists(f"{FIG}/{f}")
+    else ""
+)
 ORDER = ["2002_DB1", "2002_DB2", "2002_DB3", "2002_DB4", "2004_DB1", "2004_DB2", "2004_DB3", "2004_DB4"]
-NAME = {"2002_DB1": "FVC2002 DB1 · optical", "2002_DB2": "FVC2002 DB2 · optical", "2002_DB3": "FVC2002 DB3 · capacitive", "2002_DB4": "FVC2002 DB4 · synthetic",
-        "2004_DB1": "FVC2004 DB1 · optical", "2004_DB2": "FVC2004 DB2 · optical", "2004_DB3": "FVC2004 DB3 · thermal", "2004_DB4": "FVC2004 DB4 · synthetic"}
-NOTE = {"2004_DB1": "JIPNet trained on it", "2004_DB2": "JIPNet trained on it", "2002_DB1": "paper’s test set", "2002_DB3": "paper’s test set"}
+NAME = {
+    "2002_DB1": "FVC2002 DB1 · optical",
+    "2002_DB2": "FVC2002 DB2 · optical",
+    "2002_DB3": "FVC2002 DB3 · capacitive",
+    "2002_DB4": "FVC2002 DB4 · synthetic",
+    "2004_DB1": "FVC2004 DB1 · optical",
+    "2004_DB2": "FVC2004 DB2 · optical",
+    "2004_DB3": "FVC2004 DB3 · thermal",
+    "2004_DB4": "FVC2004 DB4 · synthetic",
+}
+NOTE = {
+    "2004_DB1": "JIPNet trained on it",
+    "2004_DB2": "JIPNet trained on it",
+    "2002_DB1": "paper’s test set",
+    "2002_DB3": "paper’s test set",
+}
+
+
 def get(m, db):
-    r = S[(S.model == m) & (S.db == db)]; return None if r.empty else r.iloc[0]
+    r = S[(S.model == m) & (S.db == db)]
+    return None if r.empty else r.iloc[0]
+
+
 def fmt_rate(r, k, f):
-    if r is None: return '<span class="mini">running</span>'
+    if r is None:
+        return '<span class="mini">running</span>'
     lo, hi = (r.EER_lo, r.EER_hi) if k == "EER" else (r.TAR_lo, r.TAR_hi)
     part = "" if r.n_gen >= 800 else f'<br><span class="mini">partial: {int(r.n_gen)}/800 genuine</span>'
     return f'<b>{f.format(r[k])}</b> <span class="mini">({f.format(lo)}–{f.format(hi)})</span>{part}'
-rows = "".join(f'<tr><td>{NAME[d]}<br><span class="mini">{NOTE.get(d, "")}</span></td><td>{fmt_rate(get("JIPNet", d), "EER", "{:.1%}")}</td>'
-               f'<td>{fmt_rate(get("JIPNet", d), "TAR_0p1", "{:.0%}")}</td></tr>' for d in ORDER)
+
+
+rows = "".join(
+    f'<tr><td>{NAME[d]}<br><span class="mini">{NOTE.get(d, "")}</span></td><td>{fmt_rate(get("JIPNet", d), "EER", "{:.1%}")}</td>'
+    f'<td>{fmt_rate(get("JIPNet", d), "TAR_0p1", "{:.0%}")}</td></tr>'
+    for d in ORDER
+)
+
+
 def pose(d):
     r = get("JIPNet", d)
-    if r is None: return f'<tr><td>{NAME[d]}</td><td colspan="4" class="mini">running</td></tr>'
+    if r is None:
+        return f'<tr><td>{NAME[d]}</td><td colspan="4" class="mini">running</td></tr>'
     return f'<tr><td>{NAME[d]}</td><td>{r.turn_med:.1f}°</td><td>{r.turn_p90:.0f}°</td><td>{r.shift_med:.1f} px <span class="mini">({r.shift_med*0.0508:.2f} mm)</span></td><td>{r.shift_p90:.0f} px</td></tr>'
+
+
 prow = "".join(pose(d) for d in ORDER)
-AF = json.load(open(f"{P}/experiments/afr_summary.json")) if os.path.exists(f"{P}/experiments/afr_summary.json") else {}
-ROT = json.load(open(f"{P}/experiments/afr_rotation.json")) if os.path.exists(f"{P}/experiments/afr_rotation.json") else {}
+AF = (
+    json.load(open(f"{P}/experiments/afr_summary.json"))
+    if os.path.exists(f"{P}/experiments/afr_summary.json")
+    else {}
+)
+ROT = (
+    json.load(open(f"{P}/experiments/afr_rotation.json"))
+    if os.path.exists(f"{P}/experiments/afr_rotation.json")
+    else {}
+)
 AFsec = min(v["sec_per_patch"] for v in AF.values()) if AF else float("nan")
 r1 = ROT.get("2002_DB1", [])
-rot_line = (f"on FVC2002 DB1 its typical same-finger score is {r1[0]['afr_med']:.2f} for turns under 15° but {r1[-1]['afr_med']:.2f} for turns of 120–180°, against a typical different-finger score of about 0.20") if r1 else "see figure"
-rot_html = (f'<p><b>Cause of the baseline’s low accuracy:</b> rotation. Its representation is not rotation-invariant, and its built-in alignment module does not compensate for large rotations of small patches. The test pairs are turned anywhere from −180° to 180°, the JIPNet paper’s protocol, which is wider than typical real captures. Even when the turn is under 15°, the baseline’s EER is {r1[0]["afr_eer"]:.1%} on FVC2002 DB1, against 2.2% for JIPNet on all turns. {rot_line[0].upper() + rot_line[1:]}.</p><figure class="fig"><img src="{img("b_afr_rotation.png")}"><figcaption>Typical same-finger score by true turn. The baseline (blue) declines towards the different-finger level (red dashed) as the turn increases. JIPNet (orange) stays high at every angle.</figcaption></figure>') if r1 and img("b_afr_rotation.png") else ""
+rot_line = (
+    (
+        f"on FVC2002 DB1 its typical same-finger score is {r1[0]['afr_med']:.2f} for turns under 15° but {r1[-1]['afr_med']:.2f} for turns of 120–180°, against a typical different-finger score of about 0.20"
+    )
+    if r1
+    else "see figure"
+)
+rot_html = (
+    (
+        f'<p><b>Cause of the baseline’s low accuracy:</b> rotation. Its representation is not rotation-invariant, and its built-in alignment module does not compensate for large rotations of small patches. The test pairs are turned anywhere from −180° to 180°, the JIPNet paper’s protocol, which is wider than typical real captures. Even when the turn is under 15°, the baseline’s EER is {r1[0]["afr_eer"]:.1%} on FVC2002 DB1, against 2.2% for JIPNet on all turns. {rot_line[0].upper() + rot_line[1:]}.</p><figure class="fig"><img src="{img("b_afr_rotation.png")}"><figcaption>Typical same-finger score by true turn. The baseline (blue) declines towards the different-finger level (red dashed) as the turn increases. JIPNet (orange) stays high at every angle.</figcaption></figure>'
+    )
+    if r1 and img("b_afr_rotation.png")
+    else ""
+)
+
+
 def afr_rows():
     out = ""
     for d in ["2002_DB1", "2002_DB3"]:
-        j = get("JIPNet", d); a = AF.get(d)
-        jt = f'<b>{j.EER:.1%}</b> / <b>{j.TAR_0p1:.0%}</b>' if j is not None else "—"
-        at = f'<b>{a["afr_EER"]:.1%}</b> <span class="mini">({a["afr_EER_lo"]:.1%}–{a["afr_EER_hi"]:.1%})</span> / <b>{a["afr_TAR"]:.0%}</b> <span class="mini">({a["afr_TAR_lo"]:.0%}–{a["afr_TAR_hi"]:.0%})</span>' if a else '<span class="mini">running</span>'
+        j = get("JIPNet", d)
+        a = AF.get(d)
+        jt = f"<b>{j.EER:.1%}</b> / <b>{j.TAR_0p1:.0%}</b>" if j is not None else "—"
+        at = (
+            f'<b>{a["afr_EER"]:.1%}</b> <span class="mini">({a["afr_EER_lo"]:.1%}–{a["afr_EER_hi"]:.1%})</span> / <b>{a["afr_TAR"]:.0%}</b> <span class="mini">({a["afr_TAR_lo"]:.0%}–{a["afr_TAR_hi"]:.0%})</span>'
+            if a
+            else '<span class="mini">running</span>'
+        )
         same = f'{a["jip_same400_EER"]:.1%} / {a["jip_same400_TAR"]:.0%}' if a else "—"
         paper = {"2002_DB1": ("1% / 93%", "29% / 3%"), "2002_DB3": ("3% / 67%", "35% / 1%")}[d]
         out += f"<tr><td>{NAME[d]}</td><td>{jt}</td><td>{same}</td><td>{paper[0]}</td><td>{at}</td><td>{paper[1]}</td></tr>"
     return out
-J = S[(S.model == "JIPNet") & ~S.db.str.startswith("ALL")]; A = S[(S.model == "AFRNet") & ~S.db.str.startswith("ALL")]
-done_afr = len(A[A.n_gen >= 800]); done_jip = len(J[J.n_gen >= 800])
-part_dbs = [NAME[d] + f" ({int(get('JIPNet', d).n_gen)} of 800 genuine pairs)" for d in ORDER if get("JIPNet", d) is not None and get("JIPNet", d).n_gen < 800]
-status = "" if not part_dbs else f'<div class="callout"><b>Coverage note:</b> JIPNet ran on all 800 genuine + 2,400 impostor pairs of 7 databases; {", ".join(part_dbs)} was stopped early to meet the deadline and is reported on that subset. The AFR-Net-style baseline ran on FVC2002 DB1 and DB3, the paper’s two test sets.</div>'
-N = 14.532e9   # 145.32 crore Aadhaar x 10 fingers (UIDAI dashboard)
-t768 = bench["768"] * N / 60; t192 = bench["192"] * N / 60
-jip_sec = J.sec_med.median() if len(J) else float("nan"); afr_sec = A.sec_med.median() if len(A) else 1.65
+
+
+J = S[(S.model == "JIPNet") & ~S.db.str.startswith("ALL")]
+A = S[(S.model == "AFRNet") & ~S.db.str.startswith("ALL")]
+done_afr = len(A[A.n_gen >= 800])
+done_jip = len(J[J.n_gen >= 800])
+part_dbs = [
+    NAME[d] + f" ({int(get('JIPNet', d).n_gen)} of 800 genuine pairs)"
+    for d in ORDER
+    if get("JIPNet", d) is not None and get("JIPNet", d).n_gen < 800
+]
+status = (
+    ""
+    if not part_dbs
+    else f'<div class="callout"><b>Coverage note:</b> JIPNet ran on all 800 genuine + 2,400 impostor pairs of 7 databases; {", ".join(part_dbs)} was stopped early to meet the deadline and is reported on that subset. The AFR-Net-style baseline ran on FVC2002 DB1 and DB3, the paper’s two test sets.</div>'
+)
+N = 14.532e9  # 145.32 crore Aadhaar x 10 fingers (UIDAI dashboard)
+t768 = bench["768"] * N / 60
+t192 = bench["192"] * N / 60
+jip_sec = J.sec_med.median() if len(J) else float("nan")
+afr_sec = A.sec_med.median() if len(A) else 1.65
+# ==== END OF SHARED DATA (reused by later report builders) ====
 jip_years = N * jip_sec / 3.156e7
-a1 = AF.get("2002_DB1", {}); a3 = AF.get("2002_DB3", {})
-html = f'''<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+a1 = AF.get("2002_DB1", {})
+a3 = AF.get("2002_DB3", {})
+html = f"""<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>UIDAI Fingerprint Review</title>{style}
 <style>.fig img{{width:100%;height:auto;display:block;background:#fff;border-radius:8px}} td b{{font-size:15px}} .q{{font:600 12px system-ui,sans-serif;letter-spacing:.06em;text-transform:uppercase;color:var(--blue);margin:22px 0 4px}} h3{{margin-top:26px}}</style></head><body>
 <svg width="0" height="0" style="position:absolute"><defs><marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" style="fill:var(--ink)"/></marker></defs></svg>
@@ -215,6 +340,7 @@ html = f'''<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name
 {f'<figure class="fig"><img src="{img("b_fail_AFR_2002_DB1.png")}"><figcaption>AFR-Net-style baseline worst cases, FVC2002 DB1.</figcaption></figure>' if img("b_fail_AFR_2002_DB1.png") and AF else ""}
 
 <footer><b>Sources</b>: AFR-Net, arXiv 2211.13897 · JIPNet, arXiv 2405.03959; code github.com/XiongjunGuan/JIPNet · HERS, arXiv 2003.12197 · MasterPrint: Roy, Memon, Ross, arXiv 1705.07386 · DeepMasterPrints: Bontrager et al., IEEE BTAS 2018 · UIDAI enrolment dashboard (145.32 crore Aadhaar) · FVC2002/2004, bias.csr.unibo.it.</footer>
-</div></body></html>'''
+</div></body></html>"""
 
-open(f"{P}/reports/UIDAI_report.html", "w").write(html); print("ok", len(html))
+open(f"{P}/reports/UIDAI_report.html", "w").write(html)
+print("ok", len(html))

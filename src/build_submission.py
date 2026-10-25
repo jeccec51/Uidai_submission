@@ -1,38 +1,97 @@
 """Concise submission report (A4). Reuses the computed tables/figures from build_final.py."""
-import os as _os, sys as _sys; _sys.path.insert(0, _os.path.dirname(_os.path.abspath(__file__))); from paths import ROOT
-import json, pandas as pd
-P = ROOT + ""
-code = open(f"{P}/src/build_final.py").read(); code = code[:code.index("jip_years = ")] if "jip_years = " in code else code
-ns = {"__file__": __file__}; exec(code[:code.rindex('html = f')] if 'html = f' in code else code, ns)
-g = ns; img, style = g["img"], g["style"]; SVG_AFR, SVG_JIP, SVG_HERS = g["SVG_AFR"], g["SVG_JIP"], g["SVG_HERS"]
-for x, y in [("find shift/turn", "estimate shift and rotation"), ("hide non-overlap", "mask non-overlap"), ("CNN head → 384", "384 numbers"), ("12 transformer blocks → 384", "12 transformer blocks · 384 numbers"),
-             ("code (768)", "template (768)"), ("compare", "similarity"), ("shrink to", "reduce to"), ("many codes packed into one box,", "templates packed into ciphertexts"),
-             ("multiplied in one go (“batching”)", "and multiplied together (batching)"), ("P(same finger)", "match probability"), ("cos θ, sin θ, shift x, shift y", "rotation and translation")]:
+
+import json
+import os
+import sys
+
+import pandas as pd
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from paths import ROOT  # noqa: E402
+
+MARKER = "\n# ==== END OF SHARED DATA"  # a line that starts with this text
+P = ROOT
+
+# Reuse the tables, figures and numbers computed by build_final.py (everything before its marker).
+shared_code = open(f"{P}/src/build_final.py").read().split(MARKER)[0]
+g = {"__file__": __file__}
+exec(shared_code, g)
+img, style = g["img"], g["style"]
+SVG_AFR, SVG_JIP, SVG_HERS = g["SVG_AFR"], g["SVG_JIP"], g["SVG_HERS"]
+for x, y in [
+    ("find shift/turn", "estimate shift and rotation"),
+    ("hide non-overlap", "mask non-overlap"),
+    ("CNN head → 384", "384 numbers"),
+    ("12 transformer blocks → 384", "12 transformer blocks · 384 numbers"),
+    ("code (768)", "template (768)"),
+    ("compare", "similarity"),
+    ("shrink to", "reduce to"),
+    ("many codes packed into one box,", "templates packed into ciphertexts"),
+    ("multiplied in one go (“batching”)", "and multiplied together (batching)"),
+    ("P(same finger)", "match probability"),
+    ("cos θ, sin θ, shift x, shift y", "rotation and translation"),
+]:
     SVG_AFR, SVG_JIP, SVG_HERS = SVG_AFR.replace(x, y), SVG_JIP.replace(x, y), SVG_HERS.replace(x, y)
-rows, prow, afr_rows = g["rows"], g["prow"], g["afr_rows"]; AF, ROT, bench = g["AF"], g["ROT"], g["bench"]
-N = 14.532e9; t768 = bench["768"] * N / 60
-S = pd.read_csv(f"{P}/experiments/summary.csv"); J = S[(S.model == "JIPNet") & ~S.db.str.startswith("ALL")].set_index("db")
-real = J.drop(["2002_DB4", "2004_DB4"]); syn = J.loc[["2002_DB4", "2004_DB4"]]
-FL = json.load(open(f"{P}/experiments/flops.json")); jip_sec = J.sec_med.median(); jip_years = N * jip_sec / 3.156e7; AFsec = min(v["sec_per_patch"] for v in AF.values())
+rows, prow, afr_rows = g["rows"], g["prow"], g["afr_rows"]
+AF, ROT, bench = g["AF"], g["ROT"], g["bench"]
+N = 14.532e9
+t768 = bench["768"] * N / 60
+S = pd.read_csv(f"{P}/experiments/summary.csv")
+J = S[(S.model == "JIPNet") & ~S.db.str.startswith("ALL")].set_index("db")
+real = J.drop(["2002_DB4", "2004_DB4"])
+syn = J.loc[["2002_DB4", "2004_DB4"]]
+FL = json.load(open(f"{P}/experiments/flops.json"))
+jip_sec = J.sec_med.median()
+jip_years = N * jip_sec / 3.156e7
+AFsec = min(v["sec_per_patch"] for v in AF.values())
+
+
 def sci(x, k=1):
-    e = int(f"{x:e}".split("e")[1]); m = x / 10**e
+    e = int(f"{x:e}".split("e")[1])
+    m = x / 10**e
     sup = str(e).translate(str.maketrans("-0123456789", "⁻⁰¹²³⁴⁵⁶⁷⁸⁹"))
     return f"{m:.{k}f} × 10{sup}"
+
+
 pr = lambda a, b, f: f"{f.format(a)}–{f.format(b)}"
-afr_e = [AF[d]["afr_EER"] for d in AF]; jip_same = [AF[d]["jip_same400_EER"] for d in AF]; r1 = ROT["2002_DB1"]
-M = '<span class="tag derived">measured</span>'; D = '<span class="tag illus">derived</span>'; Pp = lambda t: f'<span class="tag paper">{t}</span>'
+afr_e = [AF[d]["afr_EER"] for d in AF]
+jip_same = [AF[d]["jip_same400_EER"] for d in AF]
+r1 = ROT["2002_DB1"]
+M = '<span class="tag derived">measured</span>'
+D = '<span class="tag illus">derived</span>'
+Pp = lambda t: f'<span class="tag paper">{t}</span>'
+
+
 def fig(f, cap):
-    return f'<figure class="fig"><img src="{img(f)}"><figcaption>{cap}</figcaption></figure>' if img(f) else ""
-app_list = [("b_hills_JIPNet.png", "JIPNet score distributions per database: same-finger (green) and different-finger (red) pairs."),
-            ("b_afr_vs_jip_hills.png", "Score distributions on FVC2002 DB1/DB3: AFR-Net-style baseline (top) and JIPNet (bottom)."),
-            ("b_pose.png", "JIPNet: share of genuine pairs within a given rotation or translation error."),
-            ("b_pose_overlap.png", "JIPNet: pose error by overlap between the two patches."),
-            ("b_coverage.png", "Effect of fingerprint coverage within the patch on EER and TAR at FAR 0.1%."),
-            ("b_fail_JIPNet_2002_DB1.png", "JIPNet lowest-scoring genuine pairs, highest-scoring impostor pairs and largest rotation errors, FVC2002 DB1."),
-            ("b_fail_JIPNet_2002_DB4.png", "As Figure A6, synthetic FVC2002 DB4."),
-            ("b_fail_AFR_2002_DB1.png", "AFR-Net-style baseline lowest-scoring genuine and highest-scoring impostor pairs, FVC2002 DB1.")]
+    return (
+        f'<figure class="fig"><img src="{img(f)}"><figcaption>{cap}</figcaption></figure>' if img(f) else ""
+    )
+
+
+app_list = [
+    (
+        "b_hills_JIPNet.png",
+        "JIPNet score distributions per database: same-finger (green) and different-finger (red) pairs.",
+    ),
+    (
+        "b_afr_vs_jip_hills.png",
+        "Score distributions on FVC2002 DB1/DB3: AFR-Net-style baseline (top) and JIPNet (bottom).",
+    ),
+    ("b_pose.png", "JIPNet: share of genuine pairs within a given rotation or translation error."),
+    ("b_pose_overlap.png", "JIPNet: pose error by overlap between the two patches."),
+    ("b_coverage.png", "Effect of fingerprint coverage within the patch on EER and TAR at FAR 0.1%."),
+    (
+        "b_fail_JIPNet_2002_DB1.png",
+        "JIPNet lowest-scoring genuine pairs, highest-scoring impostor pairs and largest rotation errors, FVC2002 DB1.",
+    ),
+    ("b_fail_JIPNet_2002_DB4.png", "As Figure A6, synthetic FVC2002 DB4."),
+    (
+        "b_fail_AFR_2002_DB1.png",
+        "AFR-Net-style baseline lowest-scoring genuine and highest-scoring impostor pairs, FVC2002 DB1.",
+    ),
+]
 appendix = "".join(fig(f, f"<b>Figure A{k}.</b> {c}") for k, (f, c) in enumerate(app_list, 1))
-pipeline = '''<svg viewBox="0 0 900 210" role="img" aria-label="Proposed pipeline">
+pipeline = """<svg viewBox="0 0 900 210" role="img" aria-label="Proposed pipeline">
 <rect x="10" y="55" width="120" height="80" rx="8" class="boxb"/><text x="70" y="84" text-anchor="middle" class="d-ink" font-size="12.5">new enrolee</text><text x="70" y="102" text-anchor="middle" class="d-soft" font-size="11">10 fingers</text><text x="70" y="118" text-anchor="middle" class="d-soft" font-size="11">(+ iris, face)</text>
 <path d="M135 95 L160 95" class="arrow"/>
 <rect x="165" y="45" width="150" height="100" rx="10" class="box"/><text x="240" y="72" text-anchor="middle" class="d-ink" font-size="12.5" font-weight="700">0 · Capture checks</text><text x="240" y="92" text-anchor="middle" class="d-soft" font-size="11">coverage and quality</text><text x="240" y="109" text-anchor="middle" class="d-soft" font-size="11">orientation normalisation</text><text x="240" y="126" text-anchor="middle" class="d-soft" font-size="11">liveness detection</text>
@@ -42,8 +101,9 @@ pipeline = '''<svg viewBox="0 0 900 210" role="img" aria-label="Proposed pipelin
 <rect x="575" y="30" width="180" height="130" rx="10" class="boxo"/><text x="665" y="57" text-anchor="middle" class="d-ink" font-size="12.5" font-weight="700">2 · Candidate verification</text><text x="665" y="77" text-anchor="middle" class="d-soft" font-size="11">JIPNet / AFR-Net realignment</text><text x="665" y="94" text-anchor="middle" class="d-soft" font-size="11">secure processing zone</text><text x="665" y="111" text-anchor="middle" class="d-soft" font-size="11">pose consistency check</text><text x="665" y="128" text-anchor="middle" class="d-soft" font-size="11">multi-finger fusion</text>
 <path d="M760 95 L785 95" class="arrow"/>
 <rect x="790" y="55" width="100" height="80" rx="10" class="box"/><text x="840" y="84" text-anchor="middle" class="d-ink" font-size="12.5" font-weight="700">3 · Decision</text><text x="840" y="102" text-anchor="middle" class="d-soft" font-size="11">unique /</text><text x="840" y="118" text-anchor="middle" class="d-soft" font-size="11">duplicate / review</text>
-</svg>'''
-html = f'''<!doctype html><html lang="en" data-theme="light"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+</svg>"""
+# ==== END OF SHARED DATA (reused by later report builders) ====
+html = f"""<!doctype html><html lang="en" data-theme="light"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Fingerprint Deduplication Review</title>{style}
 <style>
 .titleblock{{display:flex;justify-content:space-between;font:13px/1.5 system-ui,sans-serif;border-bottom:2px solid #1f2328;padding-bottom:8px;margin-bottom:14px}}
@@ -172,5 +232,6 @@ h1{{font-size:21px;margin:4px 0 6px}}h2{{font-size:17px;margin:18px 0 4px}}h3{{f
 <p>The operation count is fixed by the method and does not depend on the hardware, which is why it is used here as a machine-independent measure of cost. Hardware speed is expressed separately in <b>GFLOPS</b> (operations per second). The time for a step is approximately the operation count divided by the hardware speed, so the same count gives shorter times on faster hardware such as a GPU.</p></div>
 <h3>Supporting figures</h3>{appendix}
 <footer style="margin-top:14px"><b>Sources</b>: AFR-Net, arXiv 2211.13897 · JIPNet, arXiv 2405.03959; code github.com/XiongjunGuan/JIPNet · HERS, arXiv 2003.12197 · Roy, Memon, Ross, arXiv 1705.07386 · Bontrager et al., IEEE BTAS 2018 · UIDAI enrolment dashboard · FVC2002/2004, bias.csr.unibo.it.</footer>
-</div></body></html>'''
-open(f"{P}/reports/UIDAI_review_submission.html", "w").write(html); print("ok", len(html))
+</div></body></html>"""
+open(f"{P}/reports/UIDAI_review_submission.html", "w").write(html)
+print("ok", len(html))

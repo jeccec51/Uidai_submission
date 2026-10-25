@@ -89,7 +89,7 @@ Latency & \textbf{Complexity} (machine-independent): $O(d\cdot\lceil N/n\rceil)$
 \textbf{Accuracy drop at 16 numbers} (authors) & Limits how far templates can be compressed to save time and storage. & Use 32--64 numbers per template ($\approx$ 20 TB encrypted at 32 numbers for 14.5 billion).\\\midrule
 \textbf{Encrypted search cost} (authors) & A full encrypted scan of 14.5 billion is $\approx$ 30 hours per query on 10 cores. & Index that narrows the search (design target 1\% of the gallery, $\approx$ 18 minutes).\\\midrule
 \textbf{Server cannot rank results} (authors) & Scores must be decrypted by the key holder to select candidates. & Ranking inside the secure processing zone, with controlled key management.\\\midrule
-\textbf{Synthetic evaluation gallery} (authors; refer Part (b)) & Synthetic prints behave differently from real ones (JIPNet EER 5.9--10\% vs 1.6--3.2\%), so real-print accuracy at scale is unverified. & Validation on a large real-print gallery.\\\bottomrule\end{tabularx}
+\textbf{Synthetic evaluation gallery} (authors; refer Part (b)) & Synthetic prints behave differently from real ones (JIPNet EER 5.9\%--10.0\% vs 1.6\%--3.2\%), so real-print accuracy at scale is unverified. & Validation on a large real-print gallery.\\\bottomrule\end{tabularx}
 
 \subsection*{a.4 \textperiodcentered{} Proposed pipeline}
 \begin{figure}[H]\centering\includegraphics[width=\textwidth,height=0.36\textheight,keepaspectratio]{figures/diagram_pipeline.png}\caption*{\small Proposed staged pipeline.}\end{figure}
@@ -205,6 +205,5 @@ Sensor type & Consistent performance on real sensors not seen in training (optic
 \begin{figure}[H]\centering\includegraphics[width=\textwidth,height=0.36\textheight,keepaspectratio]{figures/b_fail_JIPNet_2002_DB1.png}\caption*{\small \textbf{Figure A6.} JIPNet lowest-scoring genuine pairs, highest-scoring impostor pairs and largest rotation errors, FVC2002 DB1.}\end{figure}
 \begin{figure}[H]\centering\includegraphics[width=\textwidth,height=0.36\textheight,keepaspectratio]{figures/b_fail_JIPNet_2002_DB4.png}\caption*{\small \textbf{Figure A7.} As Figure A6, synthetic FVC2002 DB4.}\end{figure}
 \begin{figure}[H]\centering\includegraphics[width=\textwidth,height=0.36\textheight,keepaspectratio]{figures/b_fail_AFR_2002_DB1.png}\caption*{\small \textbf{Figure A8.} AFR-Net-style baseline lowest-scoring genuine and highest-scoring impostor pairs, FVC2002 DB1.}\end{figure}
-
 \vspace{6pt}{\footnotesize \textbf{Sources:} AFR-Net, arXiv 2211.13897 \textperiodcentered{} JIPNet, arXiv 2405.03959; code github.com/XiongjunGuan/JIPNet \textperiodcentered{} HERS, arXiv 2003.12197 \textperiodcentered{} Roy, Memon, Ross, arXiv 1705.07386 \textperiodcentered{} Bontrager et al., IEEE BTAS 2018 \textperiodcentered{} UIDAI enrolment dashboard \textperiodcentered{} FVC2002/2004, bias.csr.unibo.it.\par}
 \end{document}

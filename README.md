@@ -35,6 +35,7 @@ Both models agree with the figures reported in the JIPNet paper (Table V). Full 
 
 ```
 src/                     code (see pipeline below)
+templates/               report templates (Jinja2): HTML, LaTeX, stylesheet, diagrams
 data/partial/            test-pair definitions per database (image, patch centre, rotation, ground-truth pose)
 experiments/runs/        JIPNet scores and poses for every pair (8 databases × 3,200 pairs)
 experiments/runs_afr/    AFR-Net-style score matrices (FVC2002 DB1, DB3)
@@ -58,9 +59,16 @@ reports/                 final report (PDF, HTML, LaTeX) and figures
 | Run the AFR-Net-style baseline | `python src/run_afr_embed.py 2002_DB1 2002_DB3` | `experiments/runs_afr/` |
 | Timing and operation counts | `python src/bench_compare.py`, `python src/count_flops.py` | `experiments/bench.json`, `flops.json` |
 | Metrics and figures | `python src/report_figs.py`, `python src/afr_analysis.py` | `experiments/summary.csv`, `reports/figures/` |
-| Report | `python src/build_submission.py`, `python src/build_latex.py` | `reports/` |
+| Report (HTML/PDF and LaTeX) | `python src/build_report.py`, `python src/build_latex.py --compile` | `reports/` |
 
 The pair definitions and all scores used in the report are included, so the metrics, figures and report can be regenerated (`report_figs.py` onwards) without re-running the models; the image galleries require the FVC data.
+
+## Code conventions
+
+- Every script has a module docstring with its usage and outputs, and runs through a `main()` function.
+- Functions carry type annotations and Google-style docstrings (`Args`, `Returns`).
+- Report text and layout live in `templates/`; `src/report_data.py` computes every number shown in the report from the files in `experiments/`, and `build_report.py` / `build_latex.py` only fill the templates.
+- Formatted with `black` (line length 110).
 
 ## Notes
 

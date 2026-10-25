@@ -1,7 +1,16 @@
-"""Run JIPNet / AFR-Net re-implementation over all test pairs. Resumable: appends to
-experiments/runs/<model>_<db>.csv and skips rows already done.
-Usage: python run_pairs.py JIPNet 2002_DB1 2002_DB3 ...   (or AFRNet)"""
+"""Score every test pair of the given databases with JIPNet (or the pairwise AFR-Net chain).
 
+Usage (from the repository root)::
+
+    python src/run_pairs.py JIPNet 2002_DB1 2002_DB3 ...
+    python src/run_pairs.py AFRNet 2002_DB1 ...
+
+Results are appended to ``experiments/runs/<model>_<db>.csv``; pairs already scored are
+skipped, so a run can be resumed. The AFR-Net results in the report come from the faster
+template-based ``run_afr_embed.py``; the ``AFRNet`` option here is the authors' pairwise chain.
+"""
+
+import argparse
 import csv
 import os
 import sys
@@ -21,11 +30,24 @@ os.makedirs(RUNS, exist_ok=True)
 COLS = ["idx", "score", "p_cos", "p_sin", "p_tx", "p_ty", "sec"]
 
 
-def done_set(path):
+def done_set(path: str) -> set[int]:
+    """Pair indices already present in a results file.
+
+    Args:
+        path: Results CSV path.
+
+    Returns:
+        Set of completed pair indices (empty if the file does not exist).
+    """
     return set(pd.read_csv(path).idx) if os.path.exists(path) else set()
 
 
-def run_jip(dbs):
+def run_jip(dbs: list[str]) -> None:
+    """Score all pairs of the given databases with JIPNet and record score, pose and run time.
+
+    Args:
+        dbs: Database keys, e.g. ``["2002_DB1", "2004_DB2"]``.
+    """
     m = JIP()
     for db in dbs:
         df = pd.read_csv(f"{ROOT}/data/partial/{db}_pairs.csv")
@@ -50,9 +72,21 @@ def run_jip(dbs):
 
 
 @torch.no_grad()
-def run_afr(dbs):
+def run_afr(dbs: list[str]) -> None:
+    """Score all pairs with the authors' pairwise AFR-Net chain (enhance, align, embed, score).
+
+    Patch A's template is computed once per block of pairs that share it. Not used for the
+    report figures, which use ``run_afr_embed.py``.
+
+    Args:
+        dbs: Database keys, e.g. ``["2002_DB1"]``.
+    """
     m = AFR()
-    to_t = lambda x: torch.tensor((x / 255.0)[None, None]).float()
+
+    def to_t(x: np.ndarray) -> torch.Tensor:
+        """8-bit patch to a (1, 1, H, W) tensor in [0, 1]."""
+        return torch.tensor((x / 255.0)[None, None]).float()
+
     for db in dbs:
         df = pd.read_csv(f"{ROOT}/data/partial/{db}_pairs.csv")
         out = f"{RUNS}/AFRNet_{db}.csv"
@@ -86,5 +120,14 @@ def run_afr(dbs):
         print("done", db, flush=True)
 
 
+def main() -> None:
+    """Parse the command line and run the selected model."""
+    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    parser.add_argument("model", choices=["JIPNet", "AFRNet"], help="model to run")
+    parser.add_argument("databases", nargs="+", help="database keys, e.g. 2002_DB1")
+    args = parser.parse_args()
+    {"JIPNet": run_jip, "AFRNet": run_afr}[args.model](args.databases)
+
+
 if __name__ == "__main__":
-    {"JIPNet": run_jip, "AFRNet": run_afr}[sys.argv[1]](sys.argv[2:])
+    main()

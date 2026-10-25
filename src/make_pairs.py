@@ -1,13 +1,19 @@
-"""Build partial-print test pairs from FVC (genuine pairs with a known shift and rotation).
-Genuine pair: both 160x160 patches cut from the SAME impression, exactly with the JIPNet
-authors' own recipe (make_data/generate_patch.py): patch-1 centre near the print centre,
-patch-2 centre on a ring of radius r (0..100 px) around it, each patch turned by a random
-angle in [-180, 180]. True relative pose = authors' reverse_info() -> (cos, sin, tx, ty).
-Impostor pair: the same patch-1 against a patch from a random OTHER finger (K per genuine).
-Only the recipe is stored (image, centre, angle); patches are re-cut on the fly."""
+"""Build partial-print test pairs from FVC2002/2004 with a known shift and rotation.
+
+* Genuine pair: two 160x160 patches cut from the same impression with the JIPNet authors' recipe
+  (``make_data/generate_patch.py``): patch A centred near the print centre, patch B centred on a
+  ring of radius 0-100 px around it, each patch rotated by a random angle in [-180, 180] degrees.
+  The true relative pose comes from the authors' ``reverse_info()`` as (cos, sin, tx, ty).
+* Impostor pair: the same patch A against a patch from a randomly chosen other finger
+  (``K_IMP`` per genuine pair).
+
+Only the recipe (image, centre, angle) is stored; patches are re-cut when needed.
+
+Usage (from the repository root): ``python src/make_pairs.py [2002_DB1 ...]``. Writes
+``data/partial/<db>_pairs.csv``.
+"""
 
 import glob
-import json
 import os
 import random
 import sys
@@ -46,8 +52,17 @@ GROUP = {
 PATCH, RING_MAX, K_IMP = 160, 100, 3
 
 
-def fg_mask(img, blk=16, erode=12):
-    """Foreground = blocks with ridge texture (high local spread of grey values)."""
+def fg_mask(img: np.ndarray, blk: int = 16, erode: int = 12) -> np.ndarray:
+    """Fingerprint foreground mask: blocks with ridge texture (high local spread of grey values).
+
+    Args:
+        img: Greyscale fingerprint image.
+        blk: Block size in pixels for the local spread.
+        erode: Erosion kernel size, to keep patch centres away from the print border.
+
+    Returns:
+        Binary mask (1 = fingerprint) of the largest connected region.
+    """
     f = img.astype(np.float32)
     mu = cv2.blur(f, (blk, blk))
     sd = np.sqrt(np.maximum(cv2.blur(f * f, (blk, blk)) - mu * mu, 0))
@@ -60,8 +75,17 @@ def fg_mask(img, blk=16, erode=12):
     return cv2.erode(m, np.ones((erode, erode), np.uint8))
 
 
-def square(c, ang, s=PATCH):
-    """corners of a patch centred at c=(row,col), turned by ang deg (cv2 convention) -> (x,y) polygon."""
+def square(c: tuple[float, float], ang: float, s: int = PATCH) -> np.ndarray:
+    """Corner points of a square patch, in image (x, y) coordinates.
+
+    Args:
+        c: Patch centre as (row, column).
+        ang: Patch rotation in degrees (OpenCV convention).
+        s: Patch side length in pixels.
+
+    Returns:
+        4 x 2 array of corner coordinates.
+    """
     th = np.deg2rad(ang)
     h = s / 2
     pts = np.array([[-h, -h], [h, -h], [h, h], [-h, h]])
@@ -71,7 +95,17 @@ def square(c, ang, s=PATCH):
     return (pts @ R.T + [c[1], c[0]]).astype(np.float32)
 
 
-def overlap(info1, info2, mask):
+def overlap(info1: np.ndarray, info2: np.ndarray, mask: np.ndarray) -> tuple[float, float]:
+    """Overlap between two patches cut from the same image.
+
+    Args:
+        info1: First patch as (row, column, angle).
+        info2: Second patch as (row, column, angle).
+        mask: Fingerprint foreground mask of the image.
+
+    Returns:
+        ``(geometric_overlap, overlap_on_fingerprint)``, both as a fraction of the patch area.
+    """
     H, W = mask.shape
     pad = PATCH
     c1 = np.zeros((H + 2 * pad, W + 2 * pad), np.uint8)
@@ -83,7 +117,17 @@ def overlap(info1, info2, mask):
     return inter.sum() / c1.sum(), (inter & mp).sum() / c1.sum()  # geometric overlap, overlap on print
 
 
-def build(db, seed=2026):
+def build(db: str, seed: int = 2026) -> tuple[pd.DataFrame, dict[str, np.ndarray]]:
+    """Create the genuine and impostor pair definitions for one database and save them.
+
+    Args:
+        db: Database key, e.g. ``"2002_DB1"``.
+        seed: Random seed (fixed for reproducibility).
+
+    Returns:
+        ``(pairs, masks)``: the pair table written to ``data/partial/<db>_pairs.csv`` and the
+        foreground mask of every image.
+    """
     random.seed(seed)
     np.random.seed(seed)
     files = sorted(
@@ -138,7 +182,20 @@ def build(db, seed=2026):
     return df, masks
 
 
-def load_patch(db, name, r, c, a, cache={}):
+def load_patch(db: str, name: str, r: float, c: float, a: float, cache: dict = {}) -> np.ndarray:
+    """Cut one 160x160 patch from an FVC image, using the JIPNet authors' ``cut_patch``.
+
+    Args:
+        db: Database key, e.g. ``"2002_DB1"``.
+        name: Image name, e.g. ``"12_3"`` (finger 12, impression 3).
+        r: Patch centre row.
+        c: Patch centre column.
+        a: Patch rotation in degrees.
+        cache: Internal image cache shared between calls (do not pass).
+
+    Returns:
+        The patch as an 8-bit greyscale array.
+    """
     key = (db, name)
     if key not in cache:
         if len(cache) > 300:
@@ -147,7 +204,8 @@ def load_patch(db, name, r, c, a, cache={}):
     return cut_patch(cache[key], [r, c, a], PATCH).astype(np.uint8)
 
 
-if __name__ == "__main__":
+def main() -> None:
+    """Build the pairs for the databases given on the command line (default: all eight)."""
     for db in sys.argv[1:] or DBS:
         df, _ = build(db)
         g = df[df.label == 1]
@@ -160,3 +218,7 @@ if __name__ == "__main__":
             "median overlap %.2f" % g.overlap.median(),
             "on-print %.2f" % g.overlap_print.median(),
         )
+
+
+if __name__ == "__main__":
+    main()

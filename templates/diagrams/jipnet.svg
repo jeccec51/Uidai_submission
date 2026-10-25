@@ -1,0 +1,18 @@
+<svg viewBox="0 0 900 340" role="img" aria-label="JIPNet block diagram">
+  <rect x="10" y="60" width="80" height="80" rx="6" class="boxb"/><text x="50" y="98" text-anchor="middle" class="d-ink" font-size="12">patch A</text><text x="50" y="115" text-anchor="middle" class="d-soft" font-size="11">160×160</text>
+  <rect x="10" y="200" width="80" height="80" rx="6" class="boxo"/><text x="50" y="238" text-anchor="middle" class="d-ink" font-size="12">patch B</text><text x="50" y="255" text-anchor="middle" class="d-soft" font-size="11">160×160</text>
+  <path d="M95 100 L130 100" class="arrow"/><path d="M95 240 L130 240" class="arrow"/>
+  <rect x="135" y="70" width="150" height="60" rx="8" class="box"/><text x="210" y="97" text-anchor="middle" class="d-ink" font-size="12">CNN (stages 1–2)</text><text x="210" y="114" text-anchor="middle" class="d-soft" font-size="11">encodes each patch</text>
+  <rect x="135" y="210" width="150" height="60" rx="8" class="box"/><text x="210" y="237" text-anchor="middle" class="d-ink" font-size="12">same CNN</text><text x="210" y="254" text-anchor="middle" class="d-soft" font-size="11">(shared weights)</text>
+  <path d="M290 100 L345 150" class="arrow"/><path d="M290 240 L345 190" class="arrow"/>
+  <rect x="340" y="120" width="232" height="100" rx="10" class="boxg" style="fill:var(--card)"/>
+  <text x="455" y="150" text-anchor="middle" class="d-ink" font-size="12.5" font-weight="700">Transformer (stage 3)</text>
+  <text x="455" y="170" text-anchor="middle" class="d-soft" font-size="11.5">self-attention within A and within B</text>
+  <text x="455" y="188" text-anchor="middle" class="d-soft" font-size="11.5">cross-attention between A and B</text>
+  <text x="455" y="206" text-anchor="middle" class="d-soft" font-size="11.5"></text>
+  <path d="M565 150 L620 100" class="arrow"/><path d="M565 190 L620 240" class="arrow"/>
+  <rect x="625" y="65" width="170" height="70" rx="8" class="boxb"/><text x="710" y="95" text-anchor="middle" class="d-ink" font-size="12.5">identity head</text><text x="710" y="114" text-anchor="middle" class="d-soft" font-size="11.5">match probability</text>
+  <rect x="625" y="205" width="170" height="70" rx="8" class="boxo"/><text x="710" y="233" text-anchor="middle" class="d-ink" font-size="12.5">pose head</text><text x="710" y="252" text-anchor="middle" class="d-soft" font-size="11.5">rotation and translation</text>
+  <text x="455" y="300" text-anchor="middle" class="d-soft" font-size="12">Pre-training task: fingerprint enhancement, used to initialise the CNN encoder.</text>
+  <text x="455" y="320" text-anchor="middle" class="d-soft" font-size="12">The pose head can be removed at deployment if only the yes/no is needed.</text>
+</svg>

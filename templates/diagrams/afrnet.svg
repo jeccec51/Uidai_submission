@@ -1,0 +1,18 @@
+<svg viewBox="0 0 900 360" role="img" aria-label="AFR-Net block diagram">
+  <rect x="10" y="120" width="80" height="80" rx="6" class="boxb"/><text x="50" y="157" text-anchor="middle" class="d-ink" font-size="12">print</text><text x="50" y="174" text-anchor="middle" class="d-soft" font-size="11">224×224</text>
+  <path d="M95 160 L120 160" class="arrow"/>
+  <rect x="125" y="125" width="95" height="70" rx="8" class="box"/><text x="172" y="156" text-anchor="middle" class="d-ink" font-size="12">spatial</text><text x="172" y="172" text-anchor="middle" class="d-ink" font-size="12">alignment</text>
+  <path d="M225 160 L250 160" class="arrow"/>
+  <rect x="255" y="115" width="120" height="90" rx="8" class="box"/><text x="315" y="150" text-anchor="middle" class="d-ink" font-size="12">shared CNN</text><text x="315" y="166" text-anchor="middle" class="d-ink" font-size="12">trunk</text><text x="315" y="184" text-anchor="middle" class="d-soft" font-size="11">ResNet50 layers</text>
+  <path d="M380 140 L430 90" class="arrow"/><path d="M380 180 L430 230" class="arrow"/>
+  <rect x="435" y="55" width="160" height="70" rx="8" class="boxb"/><text x="515" y="85" text-anchor="middle" class="d-ink" font-size="12">CNN head</text><text x="515" y="103" text-anchor="middle" class="d-soft" font-size="11">384 numbers</text>
+  <rect x="435" y="195" width="160" height="70" rx="8" class="boxo"/><text x="515" y="225" text-anchor="middle" class="d-ink" font-size="12">Attention head</text><text x="515" y="243" text-anchor="middle" class="d-soft" font-size="11">12 transformer blocks · 384 numbers</text>
+  <path d="M600 90 L650 150" class="arrow"/><path d="M600 230 L650 170" class="arrow"/>
+  <rect x="655" y="125" width="110" height="70" rx="8" class="box"/><text x="710" y="156" text-anchor="middle" class="d-ink" font-size="12">join</text><text x="710" y="173" text-anchor="middle" class="d-soft" font-size="11">template (768)</text>
+  <path d="M770 160 L800 160" class="arrow"/><text x="806" y="156" class="d-ink" font-size="12">similarity</text><text x="806" y="172" class="d-ink" font-size="12">score</text>
+  <!-- realignment -->
+  <rect x="255" y="290" width="510" height="56" rx="10" fill="none" stroke="var(--red)" stroke-width="1.6" stroke-dasharray="6 4"/>
+  <text x="270" y="312" fill="var(--red)" font-size="12.5" font-weight="700">Realignment — only for scores in the uncertain range 0.3–0.6</text>
+  <text x="270" y="332" class="d-soft" font-size="11.5">match 196 patch descriptors → estimate shift and rotation → mask non-overlap → re-score → blend</text>
+  <path d="M840 180 L840 318 L770 318" class="arrow"/>
+</svg>

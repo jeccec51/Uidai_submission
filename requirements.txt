@@ -11,3 +11,5 @@ pyyaml
 tqdm
 matplotlib
 gdown               # download of the JIPNet authors' weights
+jinja2              # report templates
+playwright          # HTML to PDF (run `playwright install chromium` once)

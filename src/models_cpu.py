@@ -1,5 +1,8 @@
-"""Load JIPNet and the authors' AFR-Net re-implementation on CPU, using the official repo code.
-Repo: github.com/XiongjunGuan/JIPNet (MIT), commit 40d8445. Weights from the repo's Drive link."""
+"""JIPNet and the authors' AFR-Net re-implementation, loaded on CPU from the official code.
+
+Source: github.com/XiongjunGuan/JIPNet (MIT licence), commit 40d8445; weights from the
+repository's download link, stored under ``ext/JIPNet/ckpts``.
+"""
 
 import os
 import sys
@@ -25,13 +28,29 @@ CPU = torch.device("cpu")
 torch.set_num_threads(os.cpu_count())
 
 
-def norm_pred(p, eps=1e-6):
+def norm_pred(p: np.ndarray, eps: float = 1e-6) -> np.ndarray:
+    """Normalise predicted (cos, sin) so they describe a valid rotation.
+
+    Args:
+        p: N x 4 array of (cos, sin, tx, ty) predictions.
+        eps: Small constant to avoid division by zero.
+
+    Returns:
+        N x 4 array with unit-length (cos, sin).
+    """
     n = np.sqrt(p[:, 0] ** 2 + p[:, 1] ** 2) + eps
     return np.stack([p[:, 0] / n, p[:, 1] / n, p[:, 2], p[:, 3]], 1)
 
 
 class JIP:
-    def __init__(self, patch_size=160):
+    """JIPNet (official code and weights) running on CPU."""
+
+    def __init__(self, patch_size: int = 160) -> None:
+        """Build JIPNet from the official configuration and load the released weights.
+
+        Args:
+            patch_size: Input patch size in pixels (160 in all experiments).
+        """
         cfg = yaml.safe_load(open(f"{REPO}/ckpts/JIPNet/config.yaml"))["model_cfg"]
         self.m = JIPNet(
             input_size=patch_size,
@@ -54,9 +73,16 @@ class JIP:
         self.m.eval()
 
     @torch.no_grad()
-    def __call__(self, img1, img2):
-        """img: uint8 grayscale patch (dark ridges on light background), same as repo examples.
-        returns (match probability, [cos, sin, tx, ty])"""
+    def __call__(self, img1: np.ndarray, img2: np.ndarray) -> tuple[float, np.ndarray]:
+        """Compare two patches.
+
+        Args:
+            img1: First patch, 8-bit greyscale (dark ridges on a light background).
+            img2: Second patch, same format.
+
+        Returns:
+            ``(match_probability, pose)`` where pose is (cos, sin, tx, ty) of patch 2 relative to patch 1.
+        """
         a = torch.tensor(((255.0 - img1) / 255.0)[None, None]).float()
         b = torch.tensor(((255.0 - img2) / 255.0)[None, None]).float()
         cla, al = self.m([a, b])
@@ -64,10 +90,16 @@ class JIP:
 
 
 class AFR:
-    """Authors' AFR-Net re-implementation: RidgeNet enhance -> PFVNet AlignNet -> AFR-Net embeddings (CNN 384 + ViT 384).
-    score = 0.2*cos(CNN part) + 0.8*cos(ViT part), exactly as in inference_AFRNet.py."""
+    """AFR-Net as re-implemented by the JIPNet authors, running on CPU.
 
-    def __init__(self):
+    Chain used by the authors: RidgeNet enhancement, PFVNet AlignNet, AFR-Net embedding
+    (CNN 384 + attention 384). Score = 0.2 x CNN cosine + 0.8 x attention cosine, as in their
+    ``inference_AFRNet.py``. The report uses :meth:`embed` and :meth:`score` (fixed-length
+    template); :meth:`__call__` reproduces the authors' full pairwise chain.
+    """
+
+    def __init__(self) -> None:
+        """Build the ridge-enhancement, alignment and AFR-Net networks and load their weights."""
         self.align = AlignNet()
         self.align.load_state_dict(torch.load(f"{REPO}/ckpts/PFVNet/alignnet.pth", map_location=CPU))
         self.net = AFRNet(input_size=224, pretrained=False, num_classes=384, is_stn=True)
@@ -79,7 +111,15 @@ class AFR:
         self.affine, self.tap = PAffine(), TransformAffinePred()
 
     @torch.no_grad()
-    def embed(self, x):
+    def embed(self, x: torch.Tensor) -> np.ndarray:
+        """Compute the fixed-length AFR-Net template of a patch.
+
+        Args:
+            x: Patch tensor of shape (1, 1, H, W), values in [0, 1].
+
+        Returns:
+            1 x 768 array: CNN part (384) followed by attention part (384).
+        """
         pad_h, pad_w = max(0, 224 - x.shape[2]), max(0, 224 - x.shape[3])
         x = F.pad(x, (pad_w // 2, pad_w - pad_w // 2, pad_h // 2, pad_h - pad_h // 2))
         x = (x - 0.5) / 0.5
@@ -87,12 +127,30 @@ class AFR:
         return torch.cat([c, v], -1).cpu().numpy()
 
     @staticmethod
-    def score(f1, f2):
+    def score(f1: np.ndarray, f2: np.ndarray) -> np.ndarray:
+        """Similarity of two templates: 0.2 x CNN cosine + 0.8 x attention cosine.
+
+        Args:
+            f1: N x 768 templates.
+            f2: N x 768 templates.
+
+        Returns:
+            N similarity scores.
+        """
         cos = lambda a, b: (a * b).sum(1) / (np.linalg.norm(a, axis=1) * np.linalg.norm(b, axis=1)).clip(1e-6)
         return 0.2 * cos(f1[:, :384], f2[:, :384]) + 0.8 * cos(f1[:, 384:], f2[:, 384:])
 
     @torch.no_grad()
-    def __call__(self, img1, img2):
+    def __call__(self, img1: np.ndarray, img2: np.ndarray) -> tuple[float, np.ndarray]:
+        """Compare two patches with the full pairwise chain (enhance, align, embed, score).
+
+        Args:
+            img1: First patch, 8-bit greyscale.
+            img2: Second patch, same format.
+
+        Returns:
+            ``(score, pose)`` where pose is AlignNet's (cos, sin, tx, ty) estimate.
+        """
         a = torch.tensor((img1 / 255.0)[None, None]).float()
         b = torch.tensor((img2 / 255.0)[None, None]).float()
         e1, e2 = self.enh([a, b])

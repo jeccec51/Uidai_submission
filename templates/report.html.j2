@@ -1,0 +1,206 @@
+{#- HTML / PDF report. Rendered by src/build_report.py with values from src/report_data.py. -#}
+{%- macro paper(label) %}<span class="tag paper">{{ label }}</span>{% endmacro -%}
+{%- macro figure(file, caption) %}<figure class="fig"><img src="{{ image(file) }}"><figcaption>{{ caption }}</figcaption></figure>{% endmacro -%}
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fingerprint Deduplication Review</title>
+<style>
+{% include "report.css" %}
+</style>
+</head>
+<body>
+{% include "diagrams/defs.svg" %}
+<div class="wrap">
+
+<header class="hero">
+  <div class="titleblock">
+    <div><b>Review of AI/ML research for fingerprint deduplication</b><br>AFR-Net · JIPNet · HERS</div>
+    <div style="text-align:right">Sreejith Markkassery<br>26 October 2026</div>
+  </div>
+  <h1>AFR-Net, JIPNet and HERS for billion-scale fingerprint deduplication</h1>
+  <p class="lede"><b>(a)</b> Applicability to billion-scale gallery development: design choices, latency and failure cases, with a proposed pipeline combining the three. <b>(b)</b> JIPNet and an AFR-Net-style baseline on FVC2002/2004 partial prints: EER, TAR at FAR 0.1%, JIPNet pose error and failure analysis.</p>
+  <p class="src">Sources of figures: {{ paper("paper") }} reported in the cited paper &nbsp;·&nbsp; <span class="tag derived">measured</span> measured in this study (test machine described in Part b) &nbsp;·&nbsp; <span class="tag illus">derived</span> calculated from measured or reported figures</p>
+</header>
+
+<h2>Executive summary</h2>
+<div class="card">
+  <p><b>(a) Applicability to a billion-scale gallery</b> (≈ 14.5 billion finger records). The three papers are complementary:</p>
+  <ul style="margin:2px 0 6px">
+    <li><b>AFR-Net</b>: a fixed-length template computed once per print and searchable across the full gallery. Role: <b>candidate retrieval</b>.</li>
+    <li><b>JIPNet</b>: accurate pairwise verification with pose estimation, strongest on partial prints. Role: <b>candidate verification</b>.</li>
+    <li><b>HERS</b>: search over encrypted templates. Role: <b>template protection</b>.</li>
+    <li>Combined in a staged pipeline (a.4), they cover retrieval, verification and privacy.</li>
+  </ul>
+  <p><b>(b) Partial-print experiment</b> (FVC2002/2004, 160×160 patches):</p>
+  <ul style="margin:2px 0">
+    <li><b>JIPNet accuracy</b> on the six real-sensor databases: EER {{ real_eer_range }}, TAR at FAR 0.1% of {{ real_tar_range }}, in line with the paper.</li>
+    <li><b>JIPNet pose error</b> (typical): {{ rot_range }}° in rotation and {{ shift_range }} px ({{ shift_mm_range }} mm) in translation.</li>
+    <li><b>Comparison</b>: JIPNet clearly outperformed the AFR-Net-style fixed-length baseline on the same pairs, as also reported in the JIPNet paper. This confirms the value of pose estimation for partial prints and supports orientation normalisation before template extraction.</li>
+    <li><b>Main factors affecting accuracy</b>: fingerprint coverage within the patch, overlap between patches, rotation, and synthetic versus real data.</li>
+  </ul>
+</div>
+
+<h2>Part (a) · Applicability to billion-scale gallery development</h2>
+<p><b>Scale:</b> 145.32 crore Aadhaar holders × 10 fingers ≈ 14.5 billion finger records (UIDAI dashboard). Every new enrolment is compared against all of them.</p>
+<p><b>Implication:</b> search time and the expected number of false matches both grow in proportion to gallery size. A billion-scale system therefore needs (1) a reusable template for fast full-gallery retrieval, (2) a more accurate verifier applied to a short candidate list, and (3) fusion across fingers.</p>
+<p><b>Notation</b> used in the latency and complexity entries: <b>N</b> = number of finger records in the gallery (≈ 14.5 billion); <b>d</b> = numbers per template (template length); <b>K</b> = number of candidates passed to verification; <b>P</b> = local descriptors per print in AFR-Net realignment; <b>n</b> = templates packed into one encrypted block (ciphertext) in HERS; <b>f</b> = fraction of the gallery scanned when an index is used. <b>O(·)</b> describes how cost grows with these quantities, independent of hardware. <b>GFLOP / TFLOP</b> = 10<sup>9</sup> / 10<sup>12</sup> floating-point operations (refer Appendix A0).</p>
+
+<h3>a.1 · AFR-Net: fixed-length fingerprint representation</h3>
+<figure class="fig card">{% include "diagrams/afrnet.svg" %}</figure>
+<div class="tablewrap card split"><table class="kv">
+  <tr><td>Approach</td><td><b>Network</b>: shared ResNet50 trunk with a CNN head and an attention head (85 M parameters, trained on 1.3 M images).<br><b>Template</b>: 384 + 384 numbers per print, compared by cosine similarity.<br><b>Realignment</b>: a pairwise refinement applied only to uncertain scores (0.3–0.6; 17.9% of comparisons in the authors’ tests).</td></tr>
+  <tr><td>Reported results</td><td><b>FVC2002 DB1 / DB2 / DB3</b> (full prints, standard FVC protocol): TAR at FAR 0.1% of 100% / 99.96% / 99.36%.<br><b>NIST SD14</b> (rolled prints): rank-1 identification 99.78%.<br><b>NIST SD27</b> (latent prints vs a 100,000-print gallery): rank-1 identification 53.10%.</td></tr>
+  <tr><td>Design choice at scale</td><td>The template is computed once per print, stored, indexed and compatible with encryption, which makes it well suited to <b>candidate retrieval</b> over the full gallery.</td></tr>
+  <tr><td>Latency</td><td><b>Complexity</b> (machine-independent): template creation O(1) per print, ≈ {{ afr_gflop }} GFLOP (measured operation count); full-gallery search O(N·d) ≈ 2·N·d operations ≈ {{ search_tflop_768 }} TFLOP per enrolee at d = 768 (derived); realignment O(K·P²) with P = 196 local descriptors.<br><b>Creating a template</b> (once per print, at enrolment): 8.42 ms on a GPU, as reported in the paper; {{ afr_template_sec }} s on the CPU test machine (measured).<br><b>Comparing two templates</b>: {{ compare_ns_768 }} ns on one CPU core (measured). Searching all 14.5 billion templates therefore takes ≈ {{ scan_minutes_768 }} minutes on one core (derived), and proportionally less with more cores or an index.<br><b>Realignment</b> (only for uncertain scores): 29.36 ms per pair, as reported, so it is applied to candidate lists only.</td></tr>
+  <tr><td>Failure cases and impact</td><td><table class="fc">
+    <tr><th>Issue</th><th>Impact at Aadhaar scale</th><th>Mitigation in the pipeline</th></tr>
+    <tr><td><b>Very low image quality</b> (authors)</td><td>Worn, dry or wet fingers produce unreliable templates; a duplicate missed at retrieval is not recovered later.</td><td>Quality check and re-capture at enrolment (stage 0); fusion across 10 fingers.</td></tr>
+    <tr><td><b>Very small overlap</b> (authors)</td><td>Partial or off-centre placement reduces the shared area between enrolment and query prints.</td><td>Supervised full-print capture at enrolment; JIPNet verification for partial captures (stage 2).</td></tr>
+    <tr><td><b>Rotation on small patches</b> (refer Part (b))</td><td>Template similarity drops as rotation grows (EER {{ afr_eer_db1 }} on rotated 160×160 patches; the JIPNet paper also reports 29–35% for AFR-Net on such patches).</td><td>Orientation normalisation before template extraction (stage 0).</td></tr>
+    <tr><td><b>Largest evaluated gallery 100,000</b> (authors)</td><td>False matches grow with gallery size; behaviour at 14.5 billion is not yet demonstrated.</td><td>Validation at million-scale before rollout; multi-finger fusion (stage 3).</td></tr>
+  </table></td></tr>
+</table></div>
+
+<h3>a.2 · JIPNet: joint pairwise verification and pose estimation</h3>
+<figure class="fig card">{% include "diagrams/jipnet.svg" %}</figure>
+<div class="tablewrap card split"><table class="kv">
+  <tr><td>Approach</td><td><b>Network</b>: shared CNN encoder for both patches, followed by a transformer with self- and cross-attention between them.<br><b>Output</b>: match probability and relative pose (rotation and translation), estimated jointly.</td></tr>
+  <tr><td>Reported results</td><td><b>Mixed partial-print test set</b> (160×160 patches): EER 0.04, TAR at FAR 0.1% of 0.71 (VeriFinger: 0.18 and 0.56).<br><b>FVC2002 DB1</b> (160×160 patches): EER 0.01, TAR at FAR 0.1% of 0.93.</td></tr>
+  <tr><td>Design choice at scale</td><td>A pairwise model with high accuracy on partial prints and an explicit pose output, well suited to <b>candidate verification</b> and to aligning prints for review.</td></tr>
+  <tr><td>Latency</td><td><b>Complexity</b> (machine-independent): O(K) network runs for K candidates, ≈ {{ jip_gflop }} GFLOP per pair (measured operation count); no reusable template, so a full-gallery search would be O(N) runs ≈ {{ jip_full_text }} FLOP (derived).<br><b>Comparing two patches</b>: {{ jip_sec }} s per pair on the CPU test machine (measured); no figure is reported in the paper.<br><b>Verifying a candidate list</b> of 1,000: ≈ {{ jip_1000_minutes }} minutes on the test machine (derived), and considerably less on a GPU.</td></tr>
+  <tr><td>Failure cases and impact</td><td><table class="fc">
+    <tr><th>Issue</th><th>Impact at Aadhaar scale</th><th>Mitigation in the pipeline</th></tr>
+    <tr><td><b>Severe defects, weak texture</b> (authors)</td><td>Low-quality enrolments may be rejected by verification even when they are true duplicates.</td><td>Fusion with other fingers (and iris/face); manual review queue for borderline cases.</td></tr>
+    <tr><td><b>Skin distortion</b> (authors)</td><td>Pressure and skin changes between enrolments years apart; not covered by the single-capture test (refer Part (b)).</td><td>Validation on pairs from different captures before deployment.</td></tr>
+    <tr><td><b>Small overlap</b> (authors; refer Part (b))</td><td>Pose error and missed matches increase as overlap decreases.</td><td>Minimum-coverage check at capture; several patches or fingers per decision.</td></tr>
+    <tr><td><b>Occasional 180° pose</b> (refer Part (b))</td><td>At most 1.3% of genuine pairs, with high match scores; could support a wrong alignment during review.</td><td>Pose consistency check across fingers (stage 2).</td></tr>
+    <tr><td><b>One-to-one only</b> (authors)</td><td>Cannot search the gallery directly: 14.5 billion pairs would take ≈ {{ jip_full_years }} years on the test machine.</td><td>Used only after candidate retrieval (stage 1).</td></tr>
+  </table></td></tr>
+</table></div>
+
+<h3>a.3 · HERS: search over homomorphically encrypted templates</h3>
+<figure class="fig card">{% include "diagrams/hers.svg" %}</figure>
+<div class="tablewrap card split"><table class="kv">
+  <tr><td>Approach</td><td><b>Template</b>: any fixed-length template, reduced to 64, 32 or 16 numbers.<br><b>Encryption</b>: Fan–Vercauteren homomorphic scheme (Microsoft SEAL); similarity is computed without decrypting the gallery or the query.</td></tr>
+  <tr><td>Reported results</td><td><b>Search time</b> (100 million gallery, 10 CPU cores): 740 s per query at 32 numbers; ≈ 500 s with a two-stage search.<br><b>Accuracy</b> (NIST SD4 vs 100 million): rank-1 92.3% at 192 and 64 numbers, 92.2% at 32, 78.6% at 16.<br><b>Storage</b>: 140 GB at 32 numbers per 100 million templates. Reported as 275× faster than earlier encrypted search.</td></tr>
+  <tr><td>Design choice at scale</td><td>Templates remain protected at rest and during search, and any fixed-length template can be used, which makes it the <b>privacy layer</b> for candidate retrieval.</td></tr>
+  <tr><td>Latency</td><td><b>Complexity</b> (machine-independent): O(d·⌈N/n⌉) encrypted multiplications per query, with n = 4,096 templates packed per ciphertext (paper setting): ≈ {{ hers_mults_text }} at d = 32 and N = 14.5 billion (derived); storage O(N·d).<br><b>Reported</b>: 740 s per query for a 100 million gallery on 10 CPU cores (32 numbers per template).<br><b>Scaled to 14.5 billion</b> (× 145): ≈ 30 hours per query for a full scan (derived). With an index that limits the search to 1% of the gallery: ≈ 18 minutes (design target).</td></tr>
+  <tr><td>Failure cases and impact</td><td><table class="fc">
+    <tr><th>Issue</th><th>Impact at Aadhaar scale</th><th>Mitigation in the pipeline</th></tr>
+    <tr><td><b>Accuracy drop at 16 numbers</b> (authors)</td><td>Limits how far templates can be compressed to save time and storage.</td><td>Use 32–64 numbers per template (≈ 20 TB encrypted at 32 numbers for 14.5 billion).</td></tr>
+    <tr><td><b>Encrypted search cost</b> (authors)</td><td>A full encrypted scan of 14.5 billion is ≈ 30 hours per query on 10 cores.</td><td>Index that narrows the search (design target 1% of the gallery, ≈ 18 minutes).</td></tr>
+    <tr><td><b>Server cannot rank results</b> (authors)</td><td>Scores must be decrypted by the key holder to select candidates.</td><td>Ranking inside the secure processing zone, with controlled key management.</td></tr>
+    <tr><td><b>Synthetic evaluation gallery</b> (authors; refer Part (b))</td><td>Synthetic prints behave differently from real ones (JIPNet EER {{ syn_eer_range }} vs {{ real_eer_range }}), so real-print accuracy at scale is unverified.</td><td>Validation on a large real-print gallery.</td></tr>
+  </table></td></tr>
+</table></div>
+
+<h3>a.4 · Proposed pipeline</h3>
+<figure class="fig card">{% include "diagrams/pipeline.svg" %}</figure>
+<div class="tablewrap card"><table>
+  <tr><th>Stage</th><th>Supporting evidence</th><th>Time per enrolee</th></tr>
+  <tr><td>0 · Capture checks</td><td><b>Coverage:</b> JIPNet EER on FVC2002 DB1 improves from 2.5% to 1.1% when both patches are at least 70% fingerprint.<br><b>Orientation:</b> fixed-length templates perform best on consistently oriented prints.<br><b>Liveness:</b> synthetic prints score highly against each other (refer Part (b)).</td><td>Negligible</td></tr>
+  <tr><td>1 · Candidate retrieval</td><td><b>Scalability:</b> fixed-length templates can be searched across the full gallery (a.1).<br><b>Privacy:</b> templates can stay encrypted during search (a.3).<br><b>Compactness:</b> 32–64 numbers per template retain accuracy (HERS).</td><td>Unencrypted: ≈ {{ scan_minutes_768 }} minutes on one core for a full scan, reduced by more cores and indexing. Encrypted: ≈ 18 minutes on 10 cores if an index limits the search to 1% (derived).</td></tr>
+  <tr><td>2 · Candidate verification</td><td><b>Accuracy on partial prints:</b> on the same pairs, JIPNet EER {{ jip_same_range }} versus {{ afr_range }} for a fixed-length template (refer Part (b)).<br><b>Pose output:</b> supports alignment checks and examiner review.</td><td>For 1,000 candidates: ≈ 29 s with AFR-Net realignment; ≈ {{ jip_1000_minutes }} minutes with JIPNet on the CPU test machine.</td></tr>
+  <tr><td>3 · Decision</td><td><b>Multi-finger fusion:</b> combining 10 fingers adds independent evidence and reduces false matches at gallery scale.</td><td>Negligible</td></tr>
+</table></div>
+<div class="tablewrap card"><b class="sans">Machine-independent cost per new enrolee</b>
+<table>
+  <tr><th>Step</th><th>Complexity</th><th>Operations at N = 14.5 billion</th></tr>
+  <tr><td>Template creation (AFR-Net)</td><td>O(1) per print</td><td>≈ {{ afr_gflop }} GFLOP per print, × 10 fingers</td></tr>
+  <tr><td>Full-gallery search, plain</td><td>O(N·d)</td><td>≈ {{ search_tflop_768 }} TFLOP at d = 768; ≈ {{ search_tflop_32 }} TFLOP at d = 32</td></tr>
+  <tr><td>Indexed search (scans a fraction f)</td><td>O(f·N·d)</td><td>f = 1%: ≈ {{ indexed_gflop_32 }} GFLOP at d = 32</td></tr>
+  <tr><td>Full-gallery search, encrypted (HERS)</td><td>O(d·⌈N/n⌉) ciphertext multiplications</td><td>≈ {{ hers_mults_text }} at d = 32, n = 4,096</td></tr>
+  <tr><td>Candidate verification (JIPNet)</td><td>O(K)</td><td>K = 1,000: ≈ {{ jip_k1000_tflop }} TFLOP</td></tr>
+  <tr><td>Decision (fusion)</td><td>O(K·fingers)</td><td>negligible</td></tr>
+</table>
+<p class="src">N = gallery size (finger records), d = numbers per template, K = candidate-list length, n = templates per ciphertext. GFLOP/TFLOP = 10<sup>9</sup>/10<sup>12</sup> floating-point operations; network counts measured with PyTorch’s operation counter (AFR-Net: the JIPNet authors’ re-implementation at 224×224 input). These counts are independent of hardware; the wall-clock times above are one example on the test machine. Note that verifying 1,000 candidates with JIPNet requires more operations than a plain scan of the entire gallery at d = 32, which is why the candidate list must remain short.</p>
+</div>
+<div class="card"><b class="sans">Operating modes</b>
+<ul style="margin:4px 0 6px">
+  <li><b>Full-print enrolment</b> (supervised capture of full impressions): AFR-Net reports TAR at FAR 0.1% of 99.36–100% on full FVC2002 prints, where its built-in alignment can orient the print. An AFR-Net-type template can therefore handle both retrieval and verification, entirely in encrypted form.</li>
+  <li><b>Partial or low-quality captures</b> (small sensors, poor placement): JIPNet verifies the candidate list inside the secure processing zone, where its pose estimation gives the largest benefit (refer Part (b), section b.2).</li>
+</ul>
+<table>
+  <tr><th></th><th>AFR-Net-type template</th><th>JIPNet</th></tr>
+  <tr><td>Stored per finger</td><td>768 numbers ≈ 3 KB (float32)</td><td>Fingerprint image (e.g. 388×374 px ≈ 145 KB uncompressed)</td></tr>
+  <tr><td>Full gallery, 14.5 B fingers</td><td>≈ 45 TB unencrypted; ≈ 20 TB encrypted at 32 numbers (derived)</td><td>Image archive for all fingers</td></tr>
+  <tr><td>Matching in encrypted form</td><td>Supported (HERS)</td><td>Requires decrypted images, within the secure zone</td></tr>
+</table>
+</div>
+
+<h2>Part (b) · JIPNet and AFR-Net-style baseline on FVC2002/2004</h2>
+<div class="card"><ul style="margin:2px 0">
+  <li><b>Data:</b> FVC2002 and FVC2004, 8 databases (6 real sensors, 2 synthetic), each with 100 fingers × 8 impressions.</li>
+  <li><b>Test pairs:</b> 160×160 patches, following the JIPNet protocol (patch centres up to 100 px apart, rotation between −180° and 180°). Per database: 800 genuine pairs (same finger) and 2,400 impostor pairs (different fingers).</li>
+  <li><b>Ground-truth pose:</b> both patches of a genuine pair are cut from one impression with a known shift and rotation, so the true pose is exact. Results are therefore an upper bound for pairs taken from different captures.</li>
+  <li><b>JIPNet:</b> official code and weights; outputs reproduced to 2 decimals on the authors’ examples. Run on all pairs of all 8 databases.</li>
+  <li><b>AFR-Net-style baseline:</b> AFR-Net weights released by the JIPNet authors, used as a fixed-length template (score = 0.2 × CNN similarity + 0.8 × attention similarity). Run on a subsample: 400 genuine pairs each from FVC2002 DB1 and DB3, against all different-finger combinations.</li>
+  <li><b>Metrics:</b> <i>EER</i>, the error rate at the threshold where false accepts equal false rejects (lower is better). <i>TAR at FAR 0.1%</i>, the share of genuine pairs accepted when only 1 in 1,000 impostor pairs is accepted (higher is better). <i>Pose error</i>, the difference between estimated and true rotation (degrees) and translation (pixels).</li>
+  <li><b>Test machine:</b> 2-core Intel Xeon CPU (2.1 GHz), no GPU. Measured timings refer to this machine; a GPU server is considerably faster.</li>
+</ul></div>
+
+<h3>b.1 · EER and TAR at FAR 0.1% (JIPNet)</h3>
+<div class="tablewrap card"><table>
+  <tr><th>Database</th><th>EER</th><th>TAR at FAR 0.1%</th></tr>
+  {%- for r in jipnet_rows %}
+  <tr><td>{{ r.name }} · {{ r.sensor }}<br><span class="mini">{{ r.note }}</span></td><td><b>{{ r.eer }}</b> <span class="mini">({{ r.eer_range }})</span></td><td><b>{{ r.tar }}</b> <span class="mini">({{ r.tar_range }})</span></td></tr>
+  {%- endfor %}
+</table>
+<p class="src">Values in brackets: range across random re-draws of the test pairs (90% interval).</p>
+<p><b>Comparison with the paper (FVC2002 DB1: EER 1%, TAR 93%; DB3: EER 3%, TAR 67%).</b> TAR at FAR 0.1% is set by the few highest-scoring impostor pairs, so it varies widely between samples (78–92% here on DB1). The remaining difference is explained by blank area in the patches: when both patches are at least 70% fingerprint, JIPNet reaches EER 1.1% and TAR 89% on FVC2002 DB1, in line with the paper. On DB3 the measured TAR (82%) is higher than the paper’s (67%).</p>
+</div>
+{{ figure("b_bars.png", "EER and TAR at FAR 0.1% per database.") }}
+
+<h3>b.2 · Comparison with the AFR-Net-style baseline</h3>
+<div class="tablewrap card"><table>
+  <tr><th>Database</th><th>JIPNet, measured</th><th>JIPNet, paper</th><th>AFR-Net-style, measured</th><th>AFR-Net, paper*</th></tr>
+  {%- for r in comparison_rows %}
+  <tr><td>{{ r.name }} · {{ r.sensor }}</td><td><b>{{ r.jip_eer }}</b> / {{ r.jip_tar }}</td><td>{{ r.jip_paper }}</td><td><b>{{ r.afr_eer }}</b> / {{ r.afr_tar }}</td><td>{{ r.afr_paper }}</td></tr>
+  {%- endfor %}
+</table>
+<p class="src">Each cell: EER / TAR at FAR 0.1%. Measured values use the same 400 genuine pairs per database for both models. Paper values: JIPNet paper, Table V, same protocol. *The paper’s AFR-Net result adds a separate alignment network in front of AFR-Net.</p>
+</div>
+<ul>
+  <li><b>Agreement with the paper:</b> both measured models are close to the values reported in the JIPNet paper. The paper likewise reports a high EER for AFR-Net on these partial patches (29% on DB1, 35% on DB3), even with an added alignment network; AFR-Net’s near-perfect published results refer to full prints.</li>
+  <li><b>Effect of rotation:</b> the fixed-length template is not rotation-invariant. On FVC2002 DB1 its typical genuine score is {{ rot_score_low }} for rotations under 15° and {{ rot_score_high }} for rotations of 120–180°. JIPNet estimates the rotation itself and stays near 0.95 at all angles.</li>
+</ul>
+{{ figure("b_afr_rotation.png", "Typical genuine score by true rotation between the patches.") }}
+
+<h3>b.3 · JIPNet pose error</h3>
+<div class="tablewrap card"><table>
+  <tr><th>Database</th><th>Rotation, typical</th><th>Rotation, worst 10%</th><th>Translation, typical</th><th>Translation, worst 10%</th></tr>
+  {%- for r in pose_rows %}
+  <tr><td>{{ r.name }} · {{ r.sensor }}</td><td>{{ r.rot_typ }}°</td><td>{{ r.rot_p90 }}°</td><td>{{ r.shift_typ }} px <span class="mini">({{ r.shift_typ_mm }} mm)</span></td><td>{{ r.shift_p90 }} px</td></tr>
+  {%- endfor %}
+</table>
+<p class="src">Genuine pairs only. Typical = median (half the pairs have a smaller error). Worst 10% = the error exceeded by only 1 pair in 10. 1 px = 0.0508 mm at 500 dpi. Pose error grows as overlap decreases (Figure A4).</p>
+</div>
+
+<h3>b.4 · Failure analysis</h3>
+<div class="tablewrap card"><table>
+  <tr><th>Factor</th><th>Observation and mitigation</th></tr>
+  <tr><td>Fingerprint coverage</td><td>JIPNet EER on FVC2002 DB1 improves from 2.5% to 1.1%, matching the paper, when both patches are ≥ 70% fingerprint (Figure A5). Lowest-scoring genuine pairs often contain blank regions (Figure A6).</td></tr>
+  <tr><td>Overlap</td><td>Rotation and translation errors increase as the overlap between patches decreases (Figure A4).</td></tr>
+  <tr><td>Synthetic prints</td><td>EER {{ syn_eer_range }} versus {{ real_eer_range }} on real sensors; different synthetic fingers receive high scores (Figure A7). This suggests synthetic galleries are not representative of real performance, and that resistance to synthetic prints (e.g. “MasterPrint” attacks, Roy et al. 2017; Bontrager et al. 2018) should be part of evaluation.</td></tr>
+  <tr><td>180° pose estimates</td><td>At most 1.3% of genuine pairs (0–0.2% on real sensors), with high match scores; a pose consistency check addresses this.</td></tr>
+  <tr><td>Rotation (fixed-length)</td><td>Accuracy of the AFR-Net-style template decreases with rotation (refer Part (b), section b.2); orientation normalisation before template extraction addresses this.</td></tr>
+  <tr><td>Sensor type</td><td>Consistent performance on real sensors not seen in training (optical FVC2002 DB2, thermal FVC2004 DB3).</td></tr>
+</table></div>
+
+<h2 class="pb">Appendix</h2>
+<div class="card"><b class="sans">A0 · Note on operation counts (GFLOP)</b>
+<p>A <b>FLOP</b> is one floating-point operation: a single addition or multiplication of two decimal numbers. A <b>GFLOP</b> is one billion such operations. For example, creating one AFR-Net template takes ≈ {{ afr_gflop }} GFLOP, and comparing one JIPNet pair takes ≈ {{ jip_gflop }} GFLOP.</p>
+<p>The operation count is fixed by the method and does not depend on the hardware, which is why it is used here as a machine-independent measure of cost. Hardware speed is expressed separately in <b>GFLOPS</b> (operations per second). The time for a step is approximately the operation count divided by the hardware speed, so the same count gives shorter times on faster hardware such as a GPU.</p>
+</div>
+<h3>Supporting figures</h3>
+{%- for file, caption in appendix_figures %}
+<figure class="fig"><img src="{{ image(file) }}"><figcaption><b>Figure A{{ loop.index }}.</b> {{ caption }}</figcaption></figure>
+{%- endfor %}
+
+<footer style="margin-top:14px"><b>Sources</b>: AFR-Net, arXiv 2211.13897 · JIPNet, arXiv 2405.03959; code github.com/XiongjunGuan/JIPNet · HERS, arXiv 2003.12197 · Roy, Memon, Ross, arXiv 1705.07386 · Bontrager et al., IEEE BTAS 2018 · UIDAI enrolment dashboard · FVC2002/2004, bias.csr.unibo.it.</footer>
+</div>
+</body>
+</html>

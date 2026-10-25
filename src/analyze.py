@@ -1,35 +1,36 @@
-"""Metrics + plots from experiments/runs/*.csv.
-EER: cut-off where 'impostors let in' = 'genuine rejected'.
-TAR@FAR=0.1%: cut-off set so that at most 0.1% of impostor pairs pass; share of genuine pairs that pass.
-Pose error (genuine pairs only): turn error in degrees, shift error in pixels (1 px = 0.0508 mm at 500 dpi).
+"""Metrics from the model outputs in ``experiments/runs/*.csv``.
+
+* EER: the threshold where the share of impostors accepted equals the share of genuine pairs rejected.
+* TAR at FAR 0.1%: threshold set so that at most 0.1% of impostor pairs pass; share of genuine pairs
+  that pass.
+* Pose error (genuine pairs only): rotation error in degrees, translation error in pixels
+  (1 px = 0.0508 mm at 500 dpi).
+
+Usage (from the repository root): ``python src/analyze.py``. Writes ``experiments/summary.csv``.
 """
 
 import glob
-import json
 import os
 import sys
 
-import matplotlib
-import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from paths import ROOT  # noqa: E402
 
-matplotlib.use("Agg")
-
 P = ROOT
 FIG = f"{P}/reports/figures"
-plt.rcParams.update(
-    {"font.family": "DejaVu Sans", "font.size": 10, "axes.spines.top": False, "axes.spines.right": False}
-)
 ORDER = ["2004_DB1", "2004_DB2", "2002_DB1", "2002_DB3", "2002_DB2", "2002_DB4", "2004_DB3", "2004_DB4"]
-GCOL = {"seen in training": "#c0392b", "paper test set": "#d9822b", "never seen": "#3c9a5f"}
-MCOL = {"JIPNet": "#d9822b", "AFRNet": "#2f6db5"}
 
 
-def load():
+def load() -> pd.DataFrame:
+    """Load all model outputs and join them with their test-pair definitions.
+
+    Returns:
+        One row per (model, pair): pair definition columns from ``data/partial/<db>_pairs.csv``
+        plus the model's score, predicted pose and run time, and a ``model`` column.
+    """
     out = []
     for f in glob.glob(f"{P}/experiments/runs/*.csv"):
         model, db = os.path.basename(f)[:-4].split("_", 1)
@@ -43,7 +44,16 @@ def load():
     return pd.concat(out, ignore_index=True) if out else pd.DataFrame()
 
 
-def eer(gen, imp):
+def eer(gen: np.ndarray, imp: np.ndarray) -> tuple[float, float]:
+    """Equal error rate: the threshold where false accepts equal false rejects.
+
+    Args:
+        gen: Scores of genuine (same-finger) pairs.
+        imp: Scores of impostor (different-finger) pairs.
+
+    Returns:
+        ``(eer, threshold)``.
+    """
     t = np.unique(np.r_[gen, imp])
     gs, is_ = np.sort(gen), np.sort(imp)
     far = 1 - np.searchsorted(is_, t, side="left") / len(is_)  # impostors with score >= t
@@ -52,7 +62,18 @@ def eer(gen, imp):
     return (far[k] + frr[k]) / 2, t[k]
 
 
-def boot(gen, imp, n=300, seed=0):
+def boot(gen: np.ndarray, imp: np.ndarray, n: int = 300, seed: int = 0) -> tuple[np.ndarray, np.ndarray]:
+    """90% bootstrap intervals of EER and TAR at FAR 0.1%, by re-drawing pairs with replacement.
+
+    Args:
+        gen: Scores of genuine pairs.
+        imp: Scores of impostor pairs.
+        n: Number of bootstrap re-draws.
+        seed: Random seed.
+
+    Returns:
+        ``(eer_interval, tar_interval)``, each the 5th and 95th percentiles.
+    """
     rng = np.random.default_rng(seed)
     E, T = [], []
     for _ in range(n):
@@ -62,7 +83,19 @@ def boot(gen, imp, n=300, seed=0):
     return np.percentile(E, [5, 95]), np.percentile(T, [5, 95])
 
 
-def tar_at(gen, imp, far=1e-3):
+def tar_at(gen: np.ndarray, imp: np.ndarray, far: float = 1e-3) -> tuple[float, float, int]:
+    """True-accept rate at a fixed false-accept rate.
+
+    The threshold is set so that at most ``far`` of the impostor pairs score above it.
+
+    Args:
+        gen: Scores of genuine pairs.
+        imp: Scores of impostor pairs.
+        far: Target false-accept rate (default 0.1%).
+
+    Returns:
+        ``(tar, threshold, false_accepts_allowed)``.
+    """
     s = np.sort(imp)[::-1]
     n_allowed = int(np.floor(far * len(imp)))  # false accepts allowed
     thr = (
@@ -71,14 +104,32 @@ def tar_at(gen, imp, far=1e-3):
     return (gen > thr).mean(), thr, n_allowed
 
 
-def pose_err(d):
+def pose_err(d: pd.DataFrame) -> tuple[pd.Series, pd.Series]:
+    """Rotation and translation error of the predicted pose against the ground truth.
+
+    Args:
+        d: Genuine pairs with predicted (``p_cos``, ``p_sin``, ``p_tx``, ``p_ty``) and true
+            (``gt_angle``, ``gt_tx``, ``gt_ty``) pose columns.
+
+    Returns:
+        ``(rotation_error_degrees, translation_error_pixels)``.
+    """
     pa = np.rad2deg(np.arctan2(d.p_sin, d.p_cos))
     turn = np.abs((pa - d.gt_angle + 180) % 360 - 180)
     shift = np.hypot(d.p_tx - d.gt_tx, d.p_ty - d.gt_ty)
     return turn, shift
 
 
-def summary(D):
+def summary(D: pd.DataFrame) -> pd.DataFrame:
+    """Per-database and per-group metrics for every model.
+
+    Args:
+        D: Joined model outputs from :func:`load`.
+
+    Returns:
+        One row per (model, database) and per (model, group) with EER, TAR at FAR 0.1%
+        (with bootstrap intervals), pose-error statistics and median run time.
+    """
     rows = []
     for (m, db), d in D.groupby(["model", "db"]):
         g, i = d[d.label == 1], d[d.label == 0]
@@ -138,9 +189,14 @@ def summary(D):
     return pd.DataFrame(rows)
 
 
-if __name__ == "__main__":
+def main() -> None:
+    """Print the metric table and save it to ``experiments/summary.csv``."""
     D = load()
     S = summary(D)
     pd.set_option("display.width", 220)
     print(S.round(3).to_string())
     S.to_csv(f"{P}/experiments/summary.csv", index=False)
+
+
+if __name__ == "__main__":
+    main()

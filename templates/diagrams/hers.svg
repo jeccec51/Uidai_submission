@@ -1,0 +1,20 @@
+<svg viewBox="0 0 900 300" role="img" aria-label="HERS encrypted search flow">
+  <text x="130" y="28" text-anchor="middle" class="d-ink" font-weight="700" font-size="15">Key holder (client)</text>
+  <text x="680" y="28" text-anchor="middle" class="d-ink" font-weight="700" font-size="15">Server (no decryption key)</text>
+  <line x1="420" y1="40" x2="420" y2="290" class="s-line" stroke-dasharray="4 5"/>
+  <rect x="20" y="60" width="90" height="56" rx="6" class="boxb"/><text x="65" y="85" text-anchor="middle" class="d-ink" font-size="12">print →</text><text x="65" y="101" text-anchor="middle" class="d-ink" font-size="12">192 numbers</text>
+  <path d="M115 88 L145 88" class="arrow"/>
+  <rect x="150" y="60" width="110" height="56" rx="6" class="box"/><text x="205" y="85" text-anchor="middle" class="d-ink" font-size="12">reduce to</text><text x="205" y="101" text-anchor="middle" class="d-ink" font-size="12">64 / 32 / 16</text>
+  <path d="M265 88 L295 88" class="arrow"/>
+  <rect x="300" y="60" width="90" height="56" rx="6" class="boxo"/><text x="345" y="85" text-anchor="middle" class="d-ink" font-size="12">encrypt</text><text x="345" y="101" text-anchor="middle" class="d-soft" font-size="11">(FV scheme)</text>
+  <path d="M395 88 L520 88" class="arrow"/><text x="455" y="80" text-anchor="middle" class="d-soft" font-size="11">encrypted query</text>
+  <rect x="525" y="55" width="300" height="80" rx="8" class="box"/>
+  <text x="675" y="82" text-anchor="middle" class="d-ink" font-size="12.5">encrypted gallery × encrypted query</text>
+  <text x="675" y="100" text-anchor="middle" class="d-soft" font-size="11.5">templates packed into ciphertexts</text>
+  <text x="675" y="116" text-anchor="middle" class="d-soft" font-size="11.5">and multiplied together (batching)</text>
+  <path d="M675 140 L675 190 L395 190" class="arrow"/><text x="540" y="182" text-anchor="middle" class="d-soft" font-size="11">encrypted scores</text>
+  <rect x="270" y="165" width="120" height="56" rx="6" class="boxo"/><text x="330" y="190" text-anchor="middle" class="d-ink" font-size="12">decrypt</text><text x="330" y="206" text-anchor="middle" class="d-ink" font-size="12">scores</text>
+  <path d="M265 193 L230 193" class="arrow"/>
+  <rect x="80" y="165" width="145" height="56" rx="6" class="boxb"/><text x="152" y="190" text-anchor="middle" class="d-ink" font-size="12">select top K;</text><text x="152" y="206" text-anchor="middle" class="d-ink" font-size="12">verify (stage 2)</text>
+  <text x="420" y="265" text-anchor="middle" class="d-soft" font-size="12">The server cannot compute the maximum: the scheme supports addition and multiplication, not comparison.</text>
+</svg>

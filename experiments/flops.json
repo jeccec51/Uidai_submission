@@ -1,0 +1,6 @@
+{
+ "JIPNet_pair_GFLOP": 34.649724672,
+ "AFRNet_template_GFLOP": 17.660527104,
+ "JIPNet_params_M": 38.435357,
+ "AFRNet_params_M": 47.52022
+}

@@ -1,0 +1,14 @@
+# External data and models (not redistributed; see README)
+data/raw/
+ext/
+# Python / LaTeX build artefacts
+__pycache__/
+*.pyc
+*.aux
+*.log
+*.out
+*.fls
+*.fdb_latexmk
+*.synctex.gz
+# Internal draft output of build_final.py
+reports/UIDAI_report.html

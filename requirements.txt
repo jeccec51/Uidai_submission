@@ -1,0 +1,13 @@
+# CPU environment used for the experiments (Python 3.13)
+torch>=2.5          # tested with 2.14 (CPU)
+timm==0.9.12
+einops
+numpy
+scipy
+pandas
+scikit-image
+opencv-python-headless
+pyyaml
+tqdm
+matplotlib
+gdown               # download of the JIPNet authors' weights

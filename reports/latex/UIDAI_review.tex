@@ -20,7 +20,7 @@
 {\footnotesize Sources of figures: \emph{reported} in the cited paper; \emph{measured} in this study (test machine described in Part (b)); \emph{derived} by calculation from measured or reported figures.}
 
 \section*{Executive summary}
-\textbf{(a) Applicability to a billion-scale gallery} ($\approx$ 14.5 billion finger records). The three papers are complementary:
+\textbf{(a) Applicability to a billion-scale gallery} ($\approx$ 10 billion finger records). The three papers are complementary:
 \begin{itemize}
 \item \textbf{AFR-Net}: a fixed-length template computed once per print and searchable across the full gallery. Role: \textbf{candidate retrieval}.
 \item \textbf{JIPNet}: accurate pairwise verification with pose estimation, strongest on partial prints. Role: \textbf{candidate verification}.
@@ -36,44 +36,44 @@
 \end{itemize}
 
 \section*{Part (a) \textperiodcentered{} Applicability to billion-scale gallery development}
-\textbf{Scale:} 145.32 crore Aadhaar holders $\times$ 10 fingers $\approx$ 14.5 billion finger records (UIDAI dashboard). Every new enrolment is compared against all of them.
+\textbf{Scale:} a billion-scale gallery is taken here as 1 billion people $\times$ 10 fingers = 10 billion finger records. Every new enrolment is compared against all of them; all derived figures below scale in proportion to the gallery size.
 
 \textbf{Implication:} search time and the expected number of false matches both grow in proportion to gallery size. A billion-scale system therefore needs (1) a reusable template for fast full-gallery retrieval, (2) a more accurate verifier applied to a short candidate list, and (3) fusion across fingers.
 
-\textbf{Notation} used in the latency and complexity entries: $N$ = number of finger records in the gallery ($\approx$ 14.5 billion); $d$ = numbers per template; $K$ = number of candidates passed to verification; $P$ = local descriptors per print in AFR-Net realignment; $n$ = templates packed into one encrypted block (ciphertext) in HERS; $f$ = fraction of the gallery scanned when an index is used. $O(\cdot)$ describes how cost grows with these quantities, independent of hardware. GFLOP / TFLOP = $10^9$ / $10^{12}$ floating-point operations (refer Appendix A0).
+\textbf{Notation} used in the latency and complexity entries: $N$ = number of finger records in the gallery ($\approx$ 10 billion); $d$ = numbers per template; $K$ = number of candidates passed to verification; $P$ = local descriptors per print in AFR-Net realignment; $n$ = templates packed into one encrypted block (ciphertext) in HERS; $f$ = fraction of the gallery scanned when an index is used. $O(\cdot)$ describes how cost grows with these quantities, independent of hardware. GFLOP / TFLOP = $10^9$ / $10^{12}$ floating-point operations (refer Appendix A0).
 
 \subsection*{a.1 \textperiodcentered{} AFR-Net: fixed-length fingerprint representation}
 \begin{figure}[H]\centering\includegraphics[width=0.85\textwidth,height=0.36\textheight,keepaspectratio]{figures/diagram_afrnet.png}\caption*{\small AFR-Net: shared trunk with CNN and attention heads; realignment only for uncertain scores.}\end{figure}
 \begin{tabularx}{\textwidth}{@{}>{\bfseries\raggedright}p{2.9cm}X@{}}\toprule
 Approach & \textbf{Network}: shared ResNet50 trunk with a CNN head and an attention head (85\,M parameters, trained on 1.3\,M images).\newline \textbf{Template}: 384 + 384 numbers per print, compared by cosine similarity.\newline \textbf{Realignment}: a pairwise refinement applied only to uncertain scores (0.3--0.6; 17.9\% of comparisons in the authors' tests).\\\midrule
-Reported results & \textbf{FVC2002 DB1 / DB2 / DB3} (full prints, standard FVC protocol): TAR at FAR 0.1\% of 100\% / 99.96\% / 99.36\%.\newline \textbf{NIST SD14} (rolled prints): rank-1 identification 99.78\%.\newline \textbf{NIST SD27} (latent prints vs a 100{,}000-print gallery): rank-1 identification 53.10\%.\\\midrule
+Reported results & \textbf{FVC2002 DB1 / DB2 / DB3} (full prints, standard FVC protocol, with realignment): TAR at FAR 0.1\% of 100\% / 99.96\% / 99.36\%.\newline \textbf{NIST SD14} (rolled prints): rank-1 identification 99.78\%.\newline \textbf{NIST SD27} (latent prints vs a 100{,}000-print gallery): rank-1 identification 53.10\%.\\\midrule
 Design choice at scale & The template is computed once per print, stored, indexed and compatible with encryption, which makes it well suited to \textbf{candidate retrieval} over the full gallery.\\\midrule
-Latency & \textbf{Complexity} (machine-independent): template creation $O(1)$ per print, $\approx$ 17.7 GFLOP (measured operation count); full-gallery search $O(N\cdot d)$ $\approx$ 22 TFLOP per enrolee at $d$ = 768 (derived); realignment $O(K\cdot P^2)$ with $P$ = 196.\newline \textbf{Creating a template} (once per print, at enrolment): 8.42 ms on a GPU, as reported; 1.6 s on the CPU test machine (measured).\newline \textbf{Comparing two templates}: 233 ns on one CPU core (measured). Searching all 14.5 billion templates therefore takes $\approx$ 57 minutes on one core (derived), and proportionally less with more cores or an index.\newline \textbf{Realignment} (only for uncertain scores): 29.36 ms per pair, as reported, so it is applied to candidate lists only.\\\bottomrule\end{tabularx}
+Latency & \textbf{Complexity} (machine-independent): template creation $O(1)$ per print, $\approx$ 17.7 GFLOP (measured operation count); full-gallery search $O(N\cdot d)$ $\approx$ 15 TFLOP per enrolee at $d$ = 768 (derived); realignment $O(K\cdot P^2)$ with $P$ = 196.\newline \textbf{Creating a template} (once per print, at enrolment): 8.42 ms on a GPU, as reported; 1.6 s on the CPU test machine (measured).\newline \textbf{Comparing two templates}: 233 ns on one CPU core (measured). Searching all 10 billion templates therefore takes $\approx$ 39 minutes on one core (derived), and proportionally less with more cores or an index.\newline \textbf{Realignment} (only for uncertain scores): 29.36 ms per pair, as reported, so it is applied to candidate lists only.\\\bottomrule\end{tabularx}
 
 \textbf{Failure cases and impact}\par
 \begin{tabularx}{\textwidth}{@{}>{\raggedright}p{3.4cm}>{\raggedright}X>{\raggedright\arraybackslash}X@{}}\toprule
-\textbf{Issue} & \textbf{Impact at Aadhaar scale} & \textbf{Mitigation in the pipeline}\\\midrule
+\textbf{Issue} & \textbf{Impact at billion scale} & \textbf{Mitigation in the pipeline}\\\midrule
 \textbf{Very low image quality} (authors) & Worn, dry or wet fingers produce unreliable templates; a duplicate missed at retrieval is not recovered later. & Quality check and re-capture at enrolment (stage 0); fusion across 10 fingers.\\\midrule
 \textbf{Very small overlap} (authors) & Partial or off-centre placement reduces the shared area between enrolment and query prints. & Supervised full-print capture at enrolment; JIPNet verification for partial captures (stage 2).\\\midrule
 \textbf{Rotation on small patches} (refer Part (b)) & Template similarity drops as rotation grows (EER 36.5\% on rotated 160$\times$160 patches; the JIPNet paper also reports 29--35\% for AFR-Net on such patches). & Orientation normalisation before template extraction (stage 0).\\\midrule
-\textbf{Largest evaluated gallery 100,000} (authors) & False matches grow with gallery size; behaviour at 14.5 billion is not yet demonstrated. & Validation at million-scale before rollout; multi-finger fusion (stage 3).\\\bottomrule\end{tabularx}
+\textbf{Largest evaluated gallery 100,000} (authors) & False matches grow with gallery size; behaviour at 10 billion is not yet demonstrated. & Validation at million-scale before rollout; multi-finger fusion (stage 3).\\\bottomrule\end{tabularx}
 
 \subsection*{a.2 \textperiodcentered{} JIPNet: joint pairwise verification and pose estimation}
 \begin{figure}[H]\centering\includegraphics[width=0.85\textwidth,height=0.36\textheight,keepaspectratio]{figures/diagram_jipnet.png}\caption*{\small JIPNet: both patches are processed together; outputs match probability and relative pose.}\end{figure}
 \begin{tabularx}{\textwidth}{@{}>{\bfseries\raggedright}p{2.9cm}X@{}}\toprule
 Approach & \textbf{Network}: shared CNN encoder for both patches, followed by a transformer with self- and cross-attention between them.\newline \textbf{Output}: match probability and relative pose (rotation and translation), estimated jointly.\\\midrule
-Reported results & \textbf{Mixed partial-print test set} (160$\times$160 patches): EER 0.04, TAR at FAR 0.1\% of 0.71 (VeriFinger: 0.18 and 0.56).\newline \textbf{FVC2002 DB1} (160$\times$160 patches): EER 0.01, TAR at FAR 0.1\% of 0.93.\\\midrule
+Reported results & \textbf{Mixed partial-print test set} (160$\times$160 patches): EER 4\%, TAR at FAR 0.1\% of 71\% (VeriFinger: 18\% and 56\%).\newline \textbf{FVC2002 DB1} (160$\times$160 patches): EER 1\%, TAR at FAR 0.1\% of 93\%.\\\midrule
 Design choice at scale & A pairwise model with high accuracy on partial prints and an explicit pose output, well suited to \textbf{candidate verification} and to aligning prints for review.\\\midrule
-Latency & \textbf{Complexity} (machine-independent): $O(K)$ network runs for $K$ candidates, $\approx$ 34.6 GFLOP per pair (measured operation count); no reusable template, so a full-gallery search would be $O(N)$ runs $\approx$ $5.0 \times 10^{20}$ FLOP (derived).\newline \textbf{Comparing two patches}: 0.34 s per pair on the CPU test machine (measured); no figure is reported in the paper.\newline \textbf{Verifying a candidate list} of 1{,}000: $\approx$ 6 minutes on the test machine (derived), and considerably less on a GPU.\\\bottomrule\end{tabularx}
+Latency & \textbf{Complexity} (machine-independent): $O(K)$ network runs for $K$ candidates, $\approx$ 34.6 GFLOP per pair (measured operation count); no reusable template, so a full-gallery search would be $O(N)$ runs $\approx$ $3.5 \times 10^{20}$ FLOP (derived).\newline \textbf{Comparing two patches}: 0.34 s per pair on the CPU test machine (measured); the paper reports latency on a GPU only as a chart (Fig. 13), without an exact value.\newline \textbf{Verifying a candidate list} of 1{,}000: $\approx$ 6 minutes on the test machine (derived), and considerably less on a GPU.\\\bottomrule\end{tabularx}
 
 \textbf{Failure cases and impact}\par
 \begin{tabularx}{\textwidth}{@{}>{\raggedright}p{3.4cm}>{\raggedright}X>{\raggedright\arraybackslash}X@{}}\toprule
-\textbf{Issue} & \textbf{Impact at Aadhaar scale} & \textbf{Mitigation in the pipeline}\\\midrule
+\textbf{Issue} & \textbf{Impact at billion scale} & \textbf{Mitigation in the pipeline}\\\midrule
 \textbf{Severe defects, weak texture} (authors) & Low-quality enrolments may be rejected by verification even when they are true duplicates. & Fusion with other fingers (and iris/face); manual review queue for borderline cases.\\\midrule
 \textbf{Skin distortion} (authors) & Pressure and skin changes between enrolments years apart; not covered by the single-capture test (refer Part (b)). & Validation on pairs from different captures before deployment.\\\midrule
 \textbf{Small overlap} (authors; refer Part (b)) & Pose error and missed matches increase as overlap decreases. & Minimum-coverage check at capture; several patches or fingers per decision.\\\midrule
-\textbf{Occasional 180$^\circ$ pose} (refer Part (b)) & At most 1.3\% of genuine pairs, with high match scores; could support a wrong alignment during review. & Pose consistency check across fingers (stage 2).\\\midrule
-\textbf{One-to-one only} (authors) & Cannot search the gallery directly: 14.5 billion pairs would take $\approx$ 155 years on the test machine. & Used only after candidate retrieval (stage 1).\\\bottomrule\end{tabularx}
+\textbf{Occasional 180$^\circ$ pose} (refer Part (b)) & At most 1.3\% of genuine pairs, mostly with high match scores; could support a wrong alignment during review. & Pose consistency check across fingers (stage 2).\\\midrule
+\textbf{One-to-one only} (authors) & Cannot search the gallery directly: 10 billion pairs would take $\approx$ 107 years on the test machine. & Used only after candidate retrieval (stage 1).\\\bottomrule\end{tabularx}
 
 \subsection*{a.3 \textperiodcentered{} HERS: search over homomorphically encrypted templates}
 \begin{figure}[H]\centering\includegraphics[width=0.85\textwidth,height=0.36\textheight,keepaspectratio]{figures/diagram_hers.png}\caption*{\small HERS: templates are reduced, encrypted and scored without decryption; only the key holder reads the scores.}\end{figure}
@@ -81,13 +81,13 @@ Latency & \textbf{Complexity} (machine-independent): $O(K)$ network runs for $K$
 Approach & \textbf{Template}: any fixed-length template, reduced to 64, 32 or 16 numbers.\newline \textbf{Encryption}: Fan--Vercauteren homomorphic scheme (Microsoft SEAL); similarity is computed without decrypting the gallery or the query.\\\midrule
 Reported results & \textbf{Search time} (100 million gallery, 10 CPU cores): 740 s per query at 32 numbers; $\approx$ 500 s with a two-stage search.\newline \textbf{Accuracy} (NIST SD4 vs 100 million): rank-1 92.3\% at 192 and 64 numbers, 92.2\% at 32, 78.6\% at 16.\newline \textbf{Storage}: 140 GB at 32 numbers per 100 million templates. Reported as 275$\times$ faster than earlier encrypted search.\\\midrule
 Design choice at scale & Templates remain protected at rest and during search, and any fixed-length template can be used, which makes it the \textbf{privacy layer} for candidate retrieval.\\\midrule
-Latency & \textbf{Complexity} (machine-independent): $O(d\cdot\lceil N/n\rceil)$ encrypted multiplications per query, with $n$ = 4{,}096 templates per ciphertext (paper setting): $\approx$ $1.1 \times 10^{8}$ at $d$ = 32 and $N$ = 14.5 billion (derived); storage $O(N\cdot d)$.\newline \textbf{Reported}: 740 s per query for a 100 million gallery on 10 CPU cores (32 numbers per template).\newline \textbf{Scaled to 14.5 billion} ($\times$ 145): $\approx$ 30 hours per query for a full scan (derived). With an index that limits the search to 1\% of the gallery: $\approx$ 18 minutes (design target).\\\bottomrule\end{tabularx}
+Latency & \textbf{Complexity} (machine-independent): $O(d\cdot\lceil N/n\rceil)$ encrypted multiplications per query, with $n$ = 4{,}096 templates per ciphertext (paper setting): $\approx$ $7.8 \times 10^{7}$ at $d$ = 32 and $N$ = 10 billion (derived); storage $O(N\cdot d)$.\newline \textbf{Reported}: 740 s per query for a 100 million gallery on 10 CPU cores (32 numbers per template).\newline \textbf{Scaled to 10 billion} ($\times$ 100): $\approx$ 21 hours per query for a full scan (derived). With an index that limits the search to 1\% of the gallery: $\approx$ 12 minutes (design target).\\\bottomrule\end{tabularx}
 
 \textbf{Failure cases and impact}\par
 \begin{tabularx}{\textwidth}{@{}>{\raggedright}p{3.4cm}>{\raggedright}X>{\raggedright\arraybackslash}X@{}}\toprule
-\textbf{Issue} & \textbf{Impact at Aadhaar scale} & \textbf{Mitigation in the pipeline}\\\midrule
-\textbf{Accuracy drop at 16 numbers} (authors) & Limits how far templates can be compressed to save time and storage. & Use 32--64 numbers per template ($\approx$ 20 TB encrypted at 32 numbers for 14.5 billion).\\\midrule
-\textbf{Encrypted search cost} (authors) & A full encrypted scan of 14.5 billion is $\approx$ 30 hours per query on 10 cores. & Index that narrows the search (design target 1\% of the gallery, $\approx$ 18 minutes).\\\midrule
+\textbf{Issue} & \textbf{Impact at billion scale} & \textbf{Mitigation in the pipeline}\\\midrule
+\textbf{Accuracy drop at 16 numbers} (authors) & Limits how far templates can be compressed to save time and storage. & Use 32--64 numbers per template ($\approx$ 14 TB encrypted at 32 numbers for 10 billion).\\\midrule
+\textbf{Encrypted search cost} (authors) & A full encrypted scan of 10 billion is $\approx$ 21 hours per query on 10 cores. & Index that narrows the search (design target 1\% of the gallery, $\approx$ 12 minutes).\\\midrule
 \textbf{Server cannot rank results} (authors) & Scores must be decrypted by the key holder to select candidates. & Ranking inside the secure processing zone, with controlled key management.\\\midrule
 \textbf{Synthetic evaluation gallery} (authors; refer Part (b)) & Synthetic prints behave differently from real ones (JIPNet EER 5.9\%--10.0\% vs 1.6\%--3.2\%), so real-print accuracy at scale is unverified. & Validation on a large real-print gallery.\\\bottomrule\end{tabularx}
 
@@ -97,18 +97,18 @@ Latency & \textbf{Complexity} (machine-independent): $O(d\cdot\lceil N/n\rceil)$
 \begin{tabularx}{\textwidth}{@{}>{\raggedright}p{2.6cm}>{\raggedright}X>{\raggedright\arraybackslash}p{5.2cm}@{}}\toprule
 \textbf{Stage} & \textbf{Supporting evidence} & \textbf{Time per enrolee}\\\midrule
 0 $\cdot$ Capture checks & \textbf{Coverage:} JIPNet EER on FVC2002 DB1 improves from 2.5\% to 1.1\% when both patches are at least 70\% fingerprint.\newline \textbf{Orientation:} fixed-length templates perform best on consistently oriented prints.\newline \textbf{Liveness:} synthetic prints score highly against each other (refer Part (b)). & Negligible\\\midrule
-1 $\cdot$ Candidate retrieval & \textbf{Scalability:} fixed-length templates can be searched across the full gallery (a.1).\newline \textbf{Privacy:} templates can stay encrypted during search (a.3).\newline \textbf{Compactness:} 32--64 numbers per template retain accuracy (HERS). & Unencrypted: $\approx$ 57 minutes on one core for a full scan, reduced by more cores and indexing. Encrypted: $\approx$ 18 minutes on 10 cores if an index limits the search to 1\% (derived).\\\midrule
+1 $\cdot$ Candidate retrieval & \textbf{Scalability:} fixed-length templates can be searched across the full gallery (a.1).\newline \textbf{Privacy:} templates can stay encrypted during search (a.3).\newline \textbf{Compactness:} 32--64 numbers per template retain accuracy (HERS). & Unencrypted: $\approx$ 39 minutes on one core for a full scan, reduced by more cores and indexing. Encrypted: $\approx$ 12 minutes on 10 cores if an index limits the search to 1\% (derived).\\\midrule
 2 $\cdot$ Candidate verification & \textbf{Accuracy on partial prints:} on the same pairs, JIPNet EER 2.2\%--3.0\% versus 36.5\%--37.5\% for a fixed-length template (refer Part (b)).\newline \textbf{Pose output:} supports alignment checks and examiner review. & For 1{,}000 candidates: $\approx$ 29 s with AFR-Net realignment; $\approx$ 6 minutes with JIPNet on the CPU test machine.\\\midrule
 3 $\cdot$ Decision & \textbf{Multi-finger fusion:} combining 10 fingers adds independent evidence and reduces false matches at gallery scale. & Negligible\\\bottomrule
 \end{tabularx}
 
 \textbf{Machine-independent cost per new enrolee}\par
 \begin{tabularx}{\textwidth}{@{}>{\raggedright}p{4.6cm}>{\raggedright}p{4.4cm}>{\raggedright\arraybackslash}X@{}}\toprule
-\textbf{Step} & \textbf{Complexity} & \textbf{Operations at $N$ = 14.5 billion}\\\midrule
+\textbf{Step} & \textbf{Complexity} & \textbf{Operations at $N$ = 10 billion}\\\midrule
 Template creation (AFR-Net) & $O(1)$ per print & $\approx$ 17.7 GFLOP per print, $\times$ 10 fingers\\
-Full-gallery search, plain & $O(N\cdot d)$ & $\approx$ 22 TFLOP at $d$ = 768; $\approx$ 0.9 TFLOP at $d$ = 32\\
-Indexed search (fraction $f$) & $O(f\cdot N\cdot d)$ & $f$ = 1\%: $\approx$ 9 GFLOP at $d$ = 32\\
-Full-gallery search, encrypted (HERS) & $O(d\cdot\lceil N/n\rceil)$ ciphertext mult. & $\approx$ $1.1 \times 10^{8}$ at $d$ = 32, $n$ = 4{,}096\\
+Full-gallery search, plain & $O(N\cdot d)$ & $\approx$ 15 TFLOP at $d$ = 768; $\approx$ 0.6 TFLOP at $d$ = 32\\
+Indexed search (fraction $f$) & $O(f\cdot N\cdot d)$ & $f$ = 1\%: $\approx$ 6.4 GFLOP at $d$ = 32\\
+Full-gallery search, encrypted (HERS) & $O(d\cdot\lceil N/n\rceil)$ ciphertext mult. & $\approx$ $7.8 \times 10^{7}$ at $d$ = 32, $n$ = 4{,}096\\
 Candidate verification (JIPNet) & $O(K)$ & $K$ = 1{,}000: $\approx$ 34.6 TFLOP\\
 Decision (fusion) & $O(K\cdot\mathrm{fingers})$ & negligible\\\bottomrule
 \end{tabularx}
@@ -122,7 +122,7 @@ Decision (fusion) & $O(K\cdot\mathrm{fingers})$ & negligible\\\bottomrule
 \begin{tabularx}{\textwidth}{@{}>{\raggedright}p{3.6cm}>{\raggedright}X>{\raggedright\arraybackslash}X@{}}\toprule
  & \textbf{AFR-Net-type template} & \textbf{JIPNet}\\\midrule
 Stored per finger & 768 numbers $\approx$ 3 KB (float32) & Fingerprint image (e.g.\ 388$\times$374 px $\approx$ 145 KB uncompressed)\\
-Full gallery, 14.5 B fingers & $\approx$ 45 TB unencrypted; $\approx$ 20 TB encrypted at 32 numbers (derived) & Image archive for all fingers\\
+Full gallery, 10 B fingers & $\approx$ 31 TB unencrypted; $\approx$ 14 TB encrypted at 32 numbers (derived) & Image archive for all fingers\\
 Matching in encrypted form & Supported (HERS) & Requires decrypted images, within the secure zone\\\bottomrule
 \end{tabularx}
 
@@ -151,7 +151,7 @@ FVC2004 DB4 (synthetic) & \textbf{5.9\%} (5.0\%--6.7\%) & \textbf{70\%} (39\%--7
 \bottomrule\end{tabularx}
 {\footnotesize Values in brackets: range across random re-draws of the test pairs (90\% interval).\par}
 
-\textbf{Comparison with the paper} (FVC2002 DB1: EER 1\%, TAR 93\%; DB3: EER 3\%, TAR 67\%). TAR at FAR 0.1\% is set by the few highest-scoring impostor pairs, so it varies widely between samples (78--92\% here on DB1). The remaining difference is explained by blank area in the patches: when both patches are at least 70\% fingerprint, JIPNet reaches EER 1.1\% and TAR 89\% on FVC2002 DB1, in line with the paper. On DB3 the measured TAR (82\%) is higher than the paper's (67\%).
+\textbf{Comparison with the paper} (FVC2002 DB1: EER 1\%, TAR 93\%; DB3: EER 3\%, TAR 67\%). TAR at FAR 0.1\% is set by the few highest-scoring impostor pairs, so it varies widely between samples (78--92\% here on DB1). The remaining difference is explained by blank area in the patches: when both patches are at least 70\% fingerprint, JIPNet reaches EER 1.1\% (paper: 1\%) and TAR 89\% (paper: 93\%) on FVC2002 DB1. On DB3 the measured TAR (82\%) is higher than the paper's (67\%).
 \begin{figure}[H]\centering\includegraphics[width=\textwidth,height=0.36\textheight,keepaspectratio]{figures/b_bars.png}\caption*{\small EER and TAR at FAR 0.1\% per database.}\end{figure}
 
 \subsection*{b.2 \textperiodcentered{} Comparison with the AFR-Net-style baseline}
@@ -160,7 +160,7 @@ FVC2004 DB4 (synthetic) & \textbf{5.9\%} (5.0\%--6.7\%) & \textbf{70\%} (39\%--7
 FVC2002 DB1 (optical) & \textbf{2.2\%} / 82\% & 1\% / 93\% & \textbf{36.5\%} / 2\% & 29\% / 3\%\\
 FVC2002 DB3 (capacitive) & \textbf{3.0\%} / 81\% & 3\% / 67\% & \textbf{37.5\%} / 2\% & 35\% / 1\%\\
 \bottomrule\end{tabularx}
-{\footnotesize Each cell: EER / TAR at FAR 0.1\%. Measured values use the same 400 genuine pairs per database for both models. Paper values: JIPNet paper, Table V, same protocol. *The paper's AFR-Net result adds a separate alignment network in front of AFR-Net.\par}
+{\footnotesize Each cell: EER / TAR at FAR 0.1\%. Measured values use the same 400 genuine pairs per database for both models. Paper values: JIPNet paper, Table V, same patch size, shift and rotation ranges (the paper cuts the two patches from different impressions). *The paper's AFR-Net result adds a separate alignment network in front of AFR-Net.\par}
 \begin{itemize}
 \item \textbf{Agreement with the paper:} both measured models are close to the values reported in the JIPNet paper. The paper likewise reports a high EER for AFR-Net on these partial patches (29\% on DB1, 35\% on DB3), even with an added alignment network; AFR-Net's near-perfect published results refer to full prints.
 \item \textbf{Effect of rotation:} the fixed-length template is not rotation-invariant. On FVC2002 DB1 its typical genuine score is 0.62 for rotations under 15$^\circ$ and 0.25 for rotations of 120--180$^\circ$. JIPNet estimates the rotation itself and stays near 0.95 at all angles.
@@ -184,10 +184,10 @@ FVC2004 DB4 (synthetic) & 10.7$^\circ$ & 36$^\circ$ & 12.5 px (0.64 mm) & 37 px\
 \subsection*{b.4 \textperiodcentered{} Failure analysis}
 \begin{tabularx}{\textwidth}{@{}>{\bfseries\raggedright}p{3.2cm}X@{}}\toprule
 \textbf{Factor} & \textbf{Observation and mitigation}\\\midrule
-Fingerprint coverage & JIPNet EER on FVC2002 DB1 improves from 2.5\% to 1.1\%, matching the paper, when both patches are $\geq$ 70\% fingerprint (Figure A5). Lowest-scoring genuine pairs often contain blank regions (Figure A6).\\\midrule
+Fingerprint coverage & JIPNet EER on FVC2002 DB1 improves from 2.5\% to 1.1\% (paper: 1\%) when both patches are $\geq$ 70\% fingerprint (Figure A5). Lowest-scoring genuine pairs often contain blank regions (Figure A6).\\\midrule
 Overlap & Rotation and translation errors increase as the overlap between patches decreases (Figure A4).\\\midrule
 Synthetic prints & EER 5.9\%--10.0\% versus 1.6\%--3.2\% on real sensors; different synthetic fingers receive high scores (Figure A7). This suggests synthetic galleries are not representative of real performance, and that resistance to synthetic prints (e.g.\ ``MasterPrint'' attacks, Roy et al.\ 2017; Bontrager et al.\ 2018) should be part of evaluation.\\\midrule
-180$^\circ$ pose estimates & At most 1.3\% of genuine pairs (0--0.2\% on real sensors), with high match scores; a pose consistency check addresses this.\\\midrule
+180$^\circ$ pose estimates & Rotation error above 150$^\circ$ in at most 1.3\% of genuine pairs (0--0.3\% on real sensors), mostly with high match scores; a pose consistency check addresses this.\\\midrule
 Rotation (fixed-length) & Accuracy of the AFR-Net-style template decreases with rotation (refer Part (b), section b.2); orientation normalisation before template extraction addresses this.\\\midrule
 Sensor type & Consistent performance on real sensors not seen in training (optical FVC2002 DB2, thermal FVC2004 DB3).\\\bottomrule
 \end{tabularx}
@@ -205,5 +205,5 @@ Sensor type & Consistent performance on real sensors not seen in training (optic
 \begin{figure}[H]\centering\includegraphics[width=\textwidth,height=0.36\textheight,keepaspectratio]{figures/b_fail_JIPNet_2002_DB1.png}\caption*{\small \textbf{Figure A6.} JIPNet lowest-scoring genuine pairs, highest-scoring impostor pairs and largest rotation errors, FVC2002 DB1.}\end{figure}
 \begin{figure}[H]\centering\includegraphics[width=\textwidth,height=0.36\textheight,keepaspectratio]{figures/b_fail_JIPNet_2002_DB4.png}\caption*{\small \textbf{Figure A7.} As Figure A6, synthetic FVC2002 DB4.}\end{figure}
 \begin{figure}[H]\centering\includegraphics[width=\textwidth,height=0.36\textheight,keepaspectratio]{figures/b_fail_AFR_2002_DB1.png}\caption*{\small \textbf{Figure A8.} AFR-Net-style baseline lowest-scoring genuine and highest-scoring impostor pairs, FVC2002 DB1.}\end{figure}
-\vspace{6pt}{\footnotesize \textbf{Sources:} AFR-Net, arXiv 2211.13897 \textperiodcentered{} JIPNet, arXiv 2405.03959; code github.com/XiongjunGuan/JIPNet \textperiodcentered{} HERS, arXiv 2003.12197 \textperiodcentered{} Roy, Memon, Ross, arXiv 1705.07386 \textperiodcentered{} Bontrager et al., IEEE BTAS 2018 \textperiodcentered{} UIDAI enrolment dashboard \textperiodcentered{} FVC2002/2004, bias.csr.unibo.it.\par}
+\vspace{6pt}{\footnotesize \textbf{Sources:} AFR-Net, arXiv 2211.13897 \textperiodcentered{} JIPNet, arXiv 2405.03959; code github.com/XiongjunGuan/JIPNet \textperiodcentered{} HERS, arXiv 2003.12197 \textperiodcentered{} Roy, Memon, Ross, arXiv 1705.07386 \textperiodcentered{} Bontrager et al., IEEE BTAS 2018 \textperiodcentered{} FVC2002/2004, bias.csr.unibo.it.\par}
 \end{document}

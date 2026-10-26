@@ -22,8 +22,14 @@ from paths import ROOT  # noqa: E402
 # Constants
 # ---------------------------------------------------------------------------------------------
 
-#: Gallery size: 145.32 crore Aadhaar holders x 10 fingers (UIDAI enrolment dashboard).
-GALLERY_SIZE = 14.532e9
+#: Gallery size used for all derived figures: 1 billion people x 10 fingers.
+GALLERY_SIZE = 10e9
+#: HERS reference measurement: seconds per query, 100 million gallery, 10 CPU cores, 32 numbers.
+HERS_SEC_100M = 740
+#: HERS reference storage: GB per 100 million encrypted templates at 32 numbers.
+HERS_GB_100M = 140
+#: Fraction of the gallery scanned when an index is used (design target).
+INDEX_FRACTION = 0.01
 #: HERS packing: templates per ciphertext (paper setting, polynomial degree n = 4,096).
 HERS_SLOTS = 4096
 #: Seconds in a year, for converting long run times.
@@ -315,7 +321,7 @@ def build_context() -> dict[str, Any]:
         "jip_gflop": fmt(flops["JIPNet_pair_GFLOP"], ".1f"),
         "search_tflop_768": fmt(2 * n * 768 / 1e12, ".0f"),
         "search_tflop_32": fmt(2 * n * 32 / 1e12, ".1f"),
-        "indexed_gflop_32": fmt(2 * n * 32 * 0.01 / 1e9, ".0f"),
+        "indexed_gflop_32": fmt(2 * n * 32 * INDEX_FRACTION / 1e9, ".1f"),
         "jip_k1000_tflop": fmt(1000 * flops["JIPNet_pair_GFLOP"] / 1e3, ".1f"),
         "hers_mults_text": sci_text(hers_mults),
         "hers_mults_latex": sci_latex(hers_mults),
@@ -328,6 +334,13 @@ def build_context() -> dict[str, Any]:
         "jip_sec": fmt(jip_sec, ".2f"),
         "jip_1000_minutes": fmt(jip_sec * 1000 / 60, ".0f"),
         "jip_full_years": fmt(n * jip_sec / SECONDS_PER_YEAR, ",.0f"),
+        # Gallery scale and HERS figures scaled from the paper's 100 million gallery
+        "gallery_billion": fmt(n / 1e9, ".0f"),
+        "hers_scale": fmt(n / 1e8, ".0f"),
+        "hers_hours": fmt(HERS_SEC_100M * n / 1e8 / 3600, ".0f"),
+        "hers_index_minutes": fmt(HERS_SEC_100M * n / 1e8 * INDEX_FRACTION / 60, ".0f"),
+        "storage_plain_tb": fmt(n * 768 * 4 / 1e12, ".0f"),
+        "storage_enc_tb": fmt(HERS_GB_100M * n / 1e8 / 1e3, ".0f"),
         # Rotation analysis (AFR-Net-style baseline, FVC2002 DB1)
         "rot_score_low": fmt(rotation[0]["afr_med"], ".2f"),
         "rot_score_high": fmt(rotation[-1]["afr_med"], ".2f"),

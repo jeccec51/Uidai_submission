@@ -79,7 +79,7 @@ def plot_score_hills(D: pd.DataFrame, models: list[str]) -> None:
         for ax, db in zip(axes.ravel(), ORDER):
             d = D[(D.model == m) & (D.db == db)]
             if len(d) < 100:
-                ax.text(0.5, 0.5, "not run yet", ha="center", transform=ax.transAxes, color="#999")
+                ax.text(0.5, 0.5, "no data", ha="center", transform=ax.transAxes, color="#999")
                 ax.set_title(LABEL[db].replace("\n", " "), fontsize=10)
                 continue
             g, i = d[d.label == 1].score, d[d.label == 0].score
@@ -99,7 +99,7 @@ def plot_score_hills(D: pd.DataFrame, models: list[str]) -> None:
         for a in axes[1]:
             a.set_xlabel("match score")
         fig.suptitle(
-            f"{m}: score hills per database (dashed = balance cut-off). Title colour: red = seen in training, orange = paper test set, green = never seen",
+            f"{m}: score distributions per database (dashed line = EER threshold). Title colour: red = used in JIPNet training, orange = paper's test set, green = not used by the authors",
             fontsize=11,
         )
         fig.tight_layout()
@@ -149,7 +149,7 @@ def plot_metric_bars(D: pd.DataFrame, S: pd.DataFrame, models: list[str]) -> Non
     axes[0].yaxis.set_major_formatter(matplotlib.ticker.PercentFormatter(1))
     axes[1].yaxis.set_major_formatter(matplotlib.ticker.PercentFormatter(1))
     fig.suptitle(
-        "Black whiskers = range when the pairs are re-drawn at random (90% of re-draws fall inside). Faded bar = run not finished.",
+        "Whiskers: 90% range across random re-draws of the test pairs.",
         fontsize=10,
     )
     fig.tight_layout()
@@ -183,17 +183,17 @@ def plot_pose_curves(D: pd.DataFrame, dbs: list[str]) -> None:
                     lw=1.8,
                     label=LABEL[db].replace("\n", " "),
                 )
-        axes[r_, 0].set_xlabel("turn error (degrees)")
-        axes[r_, 1].set_xlabel("shift error (pixels; 20 px ≈ 1 mm)")
+        axes[r_, 0].set_xlabel("rotation error (degrees)")
+        axes[r_, 1].set_xlabel("translation error (pixels; 20 px ≈ 1 mm)")
         for ax in axes[r_]:
             ax.set_ylabel("share of genuine pairs\nwithin this error")
             ax.set_ylim(0, 1.01)
             ax.axhline(0.5, color="#bbb", lw=0.8)
             ax.axhline(0.9, color="#bbb", lw=0.8)
-        axes[r_, 0].set_title(f"{m}: how often is the turn guess within X degrees?", fontsize=10.5)
-        axes[r_, 1].set_title(f"{m}: how often is the shift guess within X pixels?", fontsize=10.5)
+        axes[r_, 0].set_title(f"{m}: share of genuine pairs within a given rotation error", fontsize=10.5)
+        axes[r_, 1].set_title(f"{m}: share of genuine pairs within a given translation error", fontsize=10.5)
         axes[r_, 1].legend(frameon=False, fontsize=8, loc="lower right")
-    fig.suptitle("Grey lines at 50% (typical pair) and 90%. Dashed = synthetic database.", fontsize=10)
+    fig.suptitle("Grey lines at 50% and 90% of pairs. Dashed lines: synthetic databases.", fontsize=10)
     fig.tight_layout()
     fig.savefig(f"{FIG}/b_pose.png", dpi=90)
     plt.close(fig)
@@ -224,14 +224,15 @@ def plot_pose_vs_overlap(D: pd.DataFrame) -> None:
                     color=MC[m],
                     label=f"{m}, {kind}",
                 )
-    axes[0].set_ylabel("typical turn error (deg)")
-    axes[1].set_ylabel("typical shift error (px)")
+    axes[0].set_ylabel("median rotation error (degrees)")
+    axes[1].set_ylabel("median translation error (pixels)")
     for ax in axes:
-        ax.set_xlabel("how much the two patches overlap")
+        ax.set_xlabel("overlap between the two patches")
         ax.set_ylim(bottom=0)
     axes[0].legend(frameon=False, fontsize=9)
     fig.suptitle(
-        "Less overlap → bigger pose error (median per overlap band, all databases pooled)", fontsize=10.5
+        "Pose error by overlap between the patches (median per overlap band, all databases pooled)",
+        fontsize=10.5,
     )
     fig.tight_layout()
     fig.savefig(f"{FIG}/b_pose_overlap.png", dpi=95)
@@ -265,10 +266,10 @@ def plot_coverage(D: pd.DataFrame, models: list[str]) -> None:
     axes[0].yaxis.set_major_formatter(matplotlib.ticker.PercentFormatter(1))
     axes[1].yaxis.set_major_formatter(matplotlib.ticker.PercentFormatter(1))
     for ax in axes:
-        ax.set_xlabel("keep only pairs where BOTH patches are at least this much fingerprint")
+        ax.set_xlabel("minimum fingerprint share of both patches")
     axes[0].legend(frameon=False, fontsize=9)
     fig.suptitle(
-        "More fingerprint in the patch → fewer errors (databases pooled by real / synthetic)", fontsize=10.5
+        "Accuracy by fingerprint coverage of the patches (databases pooled: real / synthetic)", fontsize=10.5
     )
     fig.tight_layout()
     fig.savefig(f"{FIG}/b_coverage.png", dpi=95)
@@ -292,8 +293,8 @@ def plot_failure_gallery(D: pd.DataFrame, m: str, db: str, n: int = 6, tag: str 
     i = d[d.label == 0].nlargest(n, "score")
     turn, _ = pose_err(d[d.label == 1])
     pw = d[d.label == 1].assign(turn=turn).nlargest(n, "turn")
-    sets = [(g, "MISSED: same finger,\nlow score"), (i, "FALSE ALARM: different\nfingers, high score")] + (
-        [(pw, "POSE: biggest\nturn error")] if m == "JIPNet" else []
+    sets = [(g, "Genuine pair,\nlow score"), (i, "Impostor pair,\nhigh score")] + (
+        [(pw, "Genuine pair, largest\nrotation error")] if m == "JIPNet" else []
     )
     fig, axes = plt.subplots(len(sets), n, figsize=(2.7 * n, 3.07 * len(sets)))
     for row, (sel, lab) in enumerate(sets):
@@ -305,11 +306,11 @@ def plot_failure_gallery(D: pd.DataFrame, m: str, db: str, n: int = 6, tag: str 
             )
             t = f"{lab}\nscore {x.score:.2f} · print {min(x.cov1, x.cov2):.0%}"
             if row == 2:
-                t += f"\nturn err {x.turn:.0f}° · overlap {x.overlap:.0%}"
+                t += f"\nrotation error {x.turn:.0f}° · overlap {x.overlap:.0%}"
             axes[row, k].set_title(t, fontsize=7.5)
             axes[row, k].axis("off")
     fig.suptitle(
-        f"{m} · {LABEL[db].replace(chr(10), ' ')} · worst cases (left patch | right patch). 'print' = share of the emptier patch that is fingerprint",
+        f"{m} · {LABEL[db].replace(chr(10), ' ')} · lowest-scoring and highest-scoring cases (left patch | right patch). 'print' = fingerprint share of the patch with less fingerprint",
         fontsize=10,
     )
     fig.tight_layout()

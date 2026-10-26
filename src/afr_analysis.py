@@ -100,7 +100,7 @@ def compare_with_jipnet(D: pd.DataFrame, dbs: list[str]) -> dict:
         axes[1, k].set_xlabel("match score")
     axes[0, 0].legend(frameon=False, fontsize=9)
     fig.suptitle(
-        "Score distributions on the paper's two test sets: AFR-Net-style baseline (top) vs JIPNet (bottom)",
+        "Score distributions on the paper's two test sets: AFR-Net-style baseline (top) and JIPNet (bottom)",
         fontsize=11,
     )
     fig.tight_layout()
@@ -128,7 +128,7 @@ def plot_failures(db: str) -> None:
         p2 = load_patch(db, g.img2, g.r2, g.c2, g.a2)
         axes[0, kk].imshow(np.hstack([p1, np.zeros((160, 4), np.uint8), p2]), cmap="gray", vmin=0, vmax=255)
         axes[0, kk].set_title(
-            f"MISSED: same finger\nscore {S[i, i]:.2f} · print {min(g.cov1, g.cov2):.0%} · overlap {g.overlap:.0%}",
+            f"Genuine pair, low score\nscore {S[i, i]:.2f} · print {min(g.cov1, g.cov2):.0%} · overlap {g.overlap:.0%}",
             fontsize=7.5,
         )
     for kk, (i, j) in enumerate(hi):
@@ -137,11 +137,14 @@ def plot_failures(db: str) -> None:
         p2 = load_patch(db, b.img2, b.r2, b.c2, b.a2)
         axes[1, kk].imshow(np.hstack([p1, np.zeros((160, 4), np.uint8), p2]), cmap="gray", vmin=0, vmax=255)
         axes[1, kk].set_title(
-            f"FALSE ALARM: different fingers\nscore {S[i, j]:.2f} · {a.img1} vs {b.img2}", fontsize=7.5
+            f"Impostor pair, high score\nscore {S[i, j]:.2f} · {a.img1} vs {b.img2}", fontsize=7.5
         )
     for ax in axes.ravel():
         ax.axis("off")
-    fig.suptitle(f"AFR-Net-style baseline · FVC{db[:4]} {db[5:]} · worst cases", fontsize=10.5)
+    fig.suptitle(
+        f"AFR-Net-style baseline · FVC{db[:4]} {db[5:]} · lowest-scoring genuine and highest-scoring impostor pairs",
+        fontsize=10.5,
+    )
     fig.tight_layout()
     fig.savefig(f"{FIG}/b_fail_AFR_{db}.png", dpi=85)
     plt.close(fig)
@@ -188,29 +191,29 @@ def rotation_effect(D: pd.DataFrame, dbs: list[str]) -> dict:
             [r["afr_med"] for r in rows],
             0.4,
             color="#2f6db5",
-            label="AFR-Net-style: typical same-finger score",
+            label="AFR-Net-style: median genuine score",
         )
         ax.bar(
             x + 0.2,
             [r["jip_med"] for r in rows],
             0.4,
             color="#d9822b",
-            label="JIPNet: typical same-finger score",
+            label="JIPNet: median genuine score",
         )
         ax.axhline(
             np.median(imp),
             color="#c0392b",
             ls="--",
             lw=1.2,
-            label="AFR-Net-style: typical different-finger score",
+            label="AFR-Net-style: median impostor score",
         )
         ax.set_xticks(x, [f'{r["band"]}\n(n={r["n"]})' for r in rows])
         ax.set_ylim(0, 1.05)
-        ax.set_xlabel("true turn between the two patches")
+        ax.set_xlabel("true rotation between the two patches")
         ax.set_title(f"FVC{db[:4]} {db[5:]}", fontsize=10.5)
     axes[0, 0].legend(frameon=False, fontsize=8.5, loc="upper right")
     fig.suptitle(
-        "The baseline's code does not survive rotation; JIPNet does (it estimates the turn itself)",
+        "Median genuine score by true rotation: the fixed-length template is rotation-sensitive; JIPNet estimates the rotation",
         fontsize=11,
     )
     fig.tight_layout()
